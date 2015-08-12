@@ -33,8 +33,6 @@ namespace RoboArm
 
 		// helpers
 		bool send(const char * message);
-		bool processResponse(int response);
-		void processErrorMessage();
 
 	public:
 		CRoboArmController(void);

@@ -14,6 +14,12 @@
 
 namespace RoboArm
 {
+	enum Direction
+	{
+		DIRECTION_DOWN,
+		DIRECTION_UP
+	};
+
 	class CRoboArmController
 	{
 	private:
@@ -35,12 +41,12 @@ namespace RoboArm
 		~CRoboArmController(void);
 		
 		bool isRoboArmResponding(void); // HW?
-		bool getPosition(int& roboArmPosition); // COUNTER?
-		bool getAngles(int& upperAngle, int& bottomAngle); // ANGLES?
-		bool executeMovement(int direction, int steps); // STEP
+		bool getPosition(int& position); // COUNTER?
+		bool getAngles(int& angleUp, int& angleDown); // ANGLES?
+		bool executeMovement(Direction direction, int steps); // STEP
 		bool startCyclicMovement(int speed); // START
 		bool stopCyclicMovement(void); // STOP
-		bool setAngles(int upperAngle, int bottomAngle); // SET+ANGLE
+		bool setAngles(int angleUp, int angleDown); // SET+ANGLE
 		bool setDefaultPosition(); // CALIBRATION;
 	};
 };

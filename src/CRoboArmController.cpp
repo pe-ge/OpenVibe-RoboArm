@@ -1,5 +1,5 @@
 #include "CRoboArmController.h"
-#include "CRoboArmInitException.h"
+#include "CRoboArmException.h"
 #include "ftd2xx.h"
 #include <iostream>
 
@@ -7,16 +7,19 @@ using namespace RoboArm;
 
 bool CRoboArmController::send(const char * message)
 {
+	// Clear rx buffer on the device
+	FT_GetStatus(ftHandle,&RxBytes,&TxBytes,&EventDWord);
+	FT_Read(ftHandle, RxBuffer, RxBytes, &BytesReceived);
+	// Clear required variables
 	ftStatus = FT_OK;
 	TxBytes = 0;
 	RxBytes = 0;
 	BytesSent = 0;
 	BytesReceived = 0;
-
 	// Send message
 	TxBytes = sprintf(TxBuffer, "%s", message);
 	ftStatus |= FT_Write(ftHandle, TxBuffer, TxBytes, &BytesSent);
-	// Give robotic arm time to process message - 50ms is enough
+	// Give robotic arm time to process message - 150ms is enough
 	Sleep(150);
 	// Obtain number of characters to be read;
 	ftStatus |= FT_GetStatus(ftHandle,&RxBytes,&TxBytes,&EventDWord);
@@ -28,21 +31,34 @@ bool CRoboArmController::send(const char * message)
 	return ftStatus == FT_OK && RxBytes == BytesReceived;
 }
 
-void CRoboArmController::processErrorMessage()
+/*bool CRoboArmController::send(const char * message)
 {
-}
-
-bool CRoboArmController::processResponse(int response)
-{
-	if (response == 0)
-	{
-		return true;
-	} else
-	{
-		processErrorMessage();
-		return false;
+	if (strcmp(message, "HW?\r") == 0) {
+		RxBytes = sprintf(RxBuffer, "%s", "HW?\r\rHW::ok\r");
 	}
-}
+	if (strcmp(message, "COUNTER?\r") == 0) {
+		RxBytes = sprintf(RxBuffer, "%s", "COUNTER?\r\r-166\r");
+	}
+	if (strcmp(message, "ANGLES?\r") == 0) {
+		RxBytes = sprintf(RxBuffer, "%s", "ANGLES?\r\rAngle_up = 33 Angle_down = 22\r");
+	}
+	if (strcmp(message, "STEP=0,5\r") == 0) {
+		RxBytes = sprintf(RxBuffer, "%s", "STEP=0,5\r\rSTEP::ok\r");
+	}
+	if (strcmp(message, "START=20\r") == 0) {
+		RxBytes = sprintf(RxBuffer, "%s", "START=20\r\rSTART::ok\r");
+	}
+	if (strcmp(message, "STOP\r") == 0) {
+		RxBytes = sprintf(RxBuffer, "%s", "STOP\r\rSTOP::ok\r");
+	}
+	if (strcmp(message, "SET+ANGLE=90,90\r") == 0) {
+		RxBytes = sprintf(RxBuffer, "%s", "SET+ANGLE=90,90\r\rANGLE::ok\r");
+	}
+	if (strcmp(message, "CALIBRATION\r") == 0) {
+		RxBytes = sprintf(RxBuffer, "%s", "CALIBRATION\r");
+	}
+	return true;
+}*/
 
 CRoboArmController::CRoboArmController( void )
 {
@@ -50,7 +66,7 @@ CRoboArmController::CRoboArmController( void )
 	ftStatus = FT_OpenEx("AH02QXEY", FT_OPEN_BY_SERIAL_NUMBER, &ftHandle); 
 	if (ftStatus != FT_OK)
 	{
-		throw CRoboArmInitException("Robo arm is not connected");
+		//throw CRoboArmException("Robo arm is not connected.");
 	}
 
 	// Reset the device
@@ -81,47 +97,146 @@ bool CRoboArmController::isRoboArmResponding(void)
 		return false;
 	}
 
-	int response = strcmp(RxBuffer, "HW?\r\rHW::ok\r");
-	return processResponse(response);
+	return strcmp(RxBuffer, "HW?\r\rHW::ok\r") == 0;
 }
-bool CRoboArmController::getPosition(int& roboArmPosition)
+bool CRoboArmController::getPosition(int& position)
 {
-	//if (!send("START=10\r"))
-	if (!send("CALIBRATION\r"))
+	if (!send("COUNTER?\r"))
 	{
 		return false;
 	}
 
-	// Obtain number of characters to be read;
-	ftStatus |= FT_GetStatus(ftHandle,&RxBytes,&TxBytes,&EventDWord);
-	// Read available data
-	ftStatus |= FT_Read(ftHandle, RxBuffer, RxBytes, &BytesReceived);
+	// Check whether first 10 characters are equal to COUNTER?\r\r
+	char tmp[64];
+	strcpy(tmp, RxBuffer);
+	tmp[10] = NULL;
+	int response = strcmp(tmp, "COUNTER?\r\r");
+	if (response != 0)
+	{
+		return false;
+	}
 
-	std::cout << RxBuffer << std::endl;
-	int response = strcmp(RxBuffer, "HW?\r\rHW::ok\r");
-	return processResponse(response);
-}
-bool CRoboArmController::getAngles(int& upperAngle, int& bottomAngle)
-{
+	// Obtain position
+	strcpy(tmp, RxBuffer + strlen(tmp));
+	position = atoi(tmp);
+
 	return true;
 }
-bool CRoboArmController::executeMovement(int direction, int steps)
+bool CRoboArmController::getAngles(int& angleUp, int& angleDown)
 {
+	if (!send("ANGLES?\r"))
+	{
+		return false;
+	}
+
+	// Check whether first 9 characters are equal to ANGLES?\r\r
+	char tmp[64];
+	strcpy(tmp, RxBuffer);
+	tmp[9] = NULL;
+	int response = strcmp(tmp, "ANGLES?\r\r");
+	if (response != 0)
+	{
+		return false;
+	}
+
+	// Obtain first angle
+	strcpy(tmp, RxBuffer + 20);
+	for (unsigned int i = 0; i < strlen(tmp); i++)
+	{
+		if (tmp[i] == ' ')
+		{
+			tmp[i] = NULL;
+			break;
+		}
+	}
+	angleUp = atoi(tmp);
+
+	// Obtain second angle
+	for (unsigned int i = strlen(RxBuffer) - 1; i >= 0; i--)
+	{
+		if (RxBuffer[i] == ' ')
+		{
+			strcpy(tmp, RxBuffer + i + 1);
+			break;
+		}
+	}
+	angleDown = atoi(tmp);
+
 	return true;
+}
+bool CRoboArmController::executeMovement(Direction direction, int steps)
+{
+	if (direction != DIRECTION_DOWN && direction != DIRECTION_UP)
+	{
+		throw CRoboArmException("Incorrect direction.");
+	}
+
+	if (steps < 1 || steps > 100)
+	{
+		throw CRoboArmException("Incorrect number of steps. Allowed values are <1 - 100>.");
+	}
+
+	char message[64];
+	sprintf(message, "STEP=%d,%d\r", direction, steps);
+	if (!send(message))
+	{
+		return false;
+	}
+
+	// Check whether last 9 characters are equal to STEP::ok\r
+	char tmp[10];
+	strcpy(tmp, RxBuffer + strlen(RxBuffer) - 9);
+
+	return strcmp(tmp, "STEP::ok\r");
 }
 bool CRoboArmController::startCyclicMovement(int speed)
 {
-	return true;
+	if (speed < 1 || speed > 100)
+	{
+		throw CRoboArmException("Incorrect speed. Allowed values are <1 - 100>.");
+	}
+
+	char message[64];
+	sprintf(message, "START=%d\r", speed);
+	if (!send(message))
+	{
+		return false;
+	}
+
+	strcat(message + strlen(message), "\rSTART::ok\r");
+	return strcmp(message, RxBuffer) == 0;
 }
 bool CRoboArmController::stopCyclicMovement(void)
 {
-	return true;
+	if (!send("STOP\r"))
+	{
+		return false;
+	}
+
+	return strcmp(RxBuffer, "STOP\r\rSTOP::ok\r") == 0;
 }
-bool CRoboArmController::setAngles(int upperAngle, int bottomAngle)
+bool CRoboArmController::setAngles(int angleUp, int angleDown)
 {
-	return true;
+	if (angleUp < 0 || angleUp > 90 || angleDown < 0 || angleDown > 90)
+	{
+		throw CRoboArmException("Incorrect angles. Allowed values are <0 - 90>.");
+	}
+
+	char message[64];
+	sprintf(message, "SET+ANGLE=%d,%d\r", angleUp, angleDown);
+	if (!send(message))
+	{
+		return false;
+	}
+
+	strcat(message + strlen(message), "\rANGLE::ok\r");
+	return strcmp(message, RxBuffer) == 0;
 }
 bool CRoboArmController::setDefaultPosition()
 {
-	return true;
+	if (!send("CALIBRATION\r"))
+	{
+		return false;
+	}
+	return strcmp("CALIBRATION\r", RxBuffer) == 0;
 }

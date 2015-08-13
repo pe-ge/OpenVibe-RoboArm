@@ -8,21 +8,17 @@ using namespace RoboArm;
 bool CRoboArmController::send(const char * message)
 {
 	// Clear rx buffer on the device
-	FT_GetStatus(ftHandle,&RxBytes,&TxBytes,&EventDWord);
+	FT_GetQueueStatus(ftHandle, &RxBytes);
 	FT_Read(ftHandle, RxBuffer, RxBytes, &BytesReceived);
-	// Clear required variables
+	// Clear ftStatus
 	ftStatus = FT_OK;
-	TxBytes = 0;
-	RxBytes = 0;
-	BytesSent = 0;
-	BytesReceived = 0;
 	// Send message
 	TxBytes = sprintf(TxBuffer, "%s", message);
 	ftStatus |= FT_Write(ftHandle, TxBuffer, TxBytes, &BytesSent);
 	// Give robotic arm time to process message - 150ms is enough
 	Sleep(150);
 	// Obtain number of characters to be read;
-	ftStatus |= FT_GetStatus(ftHandle,&RxBytes,&TxBytes,&EventDWord);
+	ftStatus |= FT_GetQueueStatus(ftHandle, &RxBytes);
 	// Read available data
 	ftStatus |= FT_Read(ftHandle, RxBuffer, RxBytes, &BytesReceived);
 	// Append NULL character to the end
@@ -66,7 +62,7 @@ CRoboArmController::CRoboArmController( void )
 	ftStatus = FT_OpenEx("AH02QXEY", FT_OPEN_BY_SERIAL_NUMBER, &ftHandle); 
 	if (ftStatus != FT_OK)
 	{
-		//throw CRoboArmException("Robo arm is not connected.");
+		throw CRoboArmException("Robo arm is not connected.");
 	}
 
 	// Reset the device

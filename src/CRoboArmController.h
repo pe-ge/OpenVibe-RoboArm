@@ -26,12 +26,10 @@ namespace RoboArm
 		// FTDI-related members
 		FT_HANDLE ftHandle;
 		FT_STATUS ftStatus;
-		DWORD EventDWord;
 		char TxBuffer[64], RxBuffer[64];
 		DWORD TxBytes, RxBytes;
 		DWORD BytesSent, BytesReceived;
 
-		// helpers
 		bool send(const char * message);
 
 	public:

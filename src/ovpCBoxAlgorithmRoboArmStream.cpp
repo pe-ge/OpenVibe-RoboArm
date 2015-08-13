@@ -2,8 +2,6 @@
 
 #include <string>
 #include <iostream>
-
-#include <iostream>
 #include <boost/thread.hpp>
 
 #if defined TARGET_OS_Windows
@@ -15,7 +13,6 @@
 #endif
 
 #include <stdint.h>
-#include "ftd2xx.h"
 
 using namespace OpenViBE;
 using namespace OpenViBE::Kernel;
@@ -27,12 +24,6 @@ using namespace OpenViBEPlugins::RoboArm;
 using namespace boost;
 using namespace boost::this_thread;
 
-const char *m_scvMessages_init[] = {"HW::ok", "START::ok", "STOP::ok", "STEP::ok", "ANGLE::ok"};
-const std::vector<std::string> CBoxAlgorithmRoboArmStream::m_scvMessages( m_scvMessages_init, std::end( m_scvMessages_init ) ); // definition of messgaes
-
-const char *m_scvCommands_init[] = {"HW?", "START=", "STOP", "STEP=", "SET+ANGLE="};
-const std::vector<std::string> CBoxAlgorithmRoboArmStream::m_scvCommands( m_scvCommands_init, std::end( m_scvCommands_init ) ); // definition of messgaes
-
 CBoxAlgorithmRoboArmStream::CBoxAlgorithmRoboArmStream( void ) :
 	m_ptSerialCom(NULL)
 {
@@ -40,86 +31,9 @@ CBoxAlgorithmRoboArmStream::CBoxAlgorithmRoboArmStream( void ) :
 
 void CBoxAlgorithmRoboArmStream::CommunicationHandler( void )
 {
-	char input_buffer[32];
-	unsigned char recieved_chars = 0;
-	FT_STATUS status;
-
 	while ( m_bContinueCommunication )
 	{
-		DWORD dwRead, dwRXBytes;
-		unsigned char b;
 
-		m_bCommunicationStarted = true;
-
-		// wait for event - RX char
-		WaitForSingleObject( m_hEvent, -1 );
-		if ( m_ftHandle )
-		{
-			status = FT_GetQueueStatus( m_ftHandle, &dwRead );
-			if ( status != FT_OK )
-			{	// error check
-//				MessageBox::Show("GError");
-				continue;
-			}
-			// read characters while there are any
-			while (dwRead && m_bContinueCommunication )
-			{
-				// get one character
-				status = FT_Read( m_ftHandle, &b, 1, &dwRXBytes );
-				if ( status != FT_OK )
-				{	// error check
-//					MessageBox::Show("RError");
-					continue;
-				}
-				else
-				{
-					// do something with received character 'b'
-					if ( b != '\r' && recieved_chars < 32 )
-					{
-						input_buffer[recieved_chars++] = b;
-					}
-					else // end of message
-					{
-						// chcek if buffer overflowed
-						if ( recieved_chars >=32 )
-						{
-							recieved_chars = 31; // hendle buffer overflow
-						}
-						input_buffer[recieved_chars] = NULL; // terminate message string
-						std::string str_intpu_buffer( input_buffer );
-						for ( unsigned char ms = 0; ms < m_scvMessages.size(); ms++ )
-						{
-							// check if there is some message from the list in the buffer
-							if ( str_intpu_buffer.find( m_scvMessages[ms] ) != std::string::npos )
-							{
-								m_dReceivedMessage = ms + 1;
-							}
-						}
-						recieved_chars = 0;
-						input_buffer[0] = NULL;
-					}
-				}
-				status = FT_GetQueueStatus( m_ftHandle, &dwRead );
-			} //end of loop
-		}
-		this_thread::sleep( posix_time::milliseconds( 10 ) );
-	}
-
-	if ( m_ftHandle )
-	{
-		FT_Close(m_ftHandle);
-		try
-		{
-			// Sleep and check for interrupt. 
-			// To check for interrupt without sleep, use boost::this_thread::interruption_point()
-			// which also throws boost::thread_interrupted
-			this_thread::sleep( posix_time::milliseconds( 50 ) );
-		}
-		catch ( boost::thread_interrupted& )
-		{
-			m_bCommunicationStarted = false;
-			return;
-		}
 	}
 }
 
@@ -127,35 +41,6 @@ void CBoxAlgorithmRoboArmStream::CommunicationHandler( void )
 
 boolean CBoxAlgorithmRoboArmStream::initialize ( void )
 {
-	CIdentifier l_oInputTypeIdentifier;
-
-	getStaticBoxContext( ).getInputType( 0, l_oInputTypeIdentifier );
-	if ( l_oInputTypeIdentifier != OV_TypeId_Signal )
-	{
-		this->getLogManager() << LogLevel_Error << 
-			"Invalid input type of Intpu signal!" << 
-			std::to_string( static_cast<unsigned long long > ( ftStatus ) ).c_str( ) << "\n";
-		return false;
-	}
-
-	getStaticBoxContext( ).getInputType( 1, l_oInputTypeIdentifier );
-	if ( l_oInputTypeIdentifier != OV_TypeId_Signal )
-	{
-		this->getLogManager() << LogLevel_Error << 
-			"Invalid input type of ThresHold signal!" << 
-			std::to_string( static_cast<unsigned long long > ( ftStatus ) ).c_str( ) << "\n";
-		return false;
-	}
-
-	getStaticBoxContext( ).getInputType( 2, l_oInputTypeIdentifier );
-	if ( l_oInputTypeIdentifier != OV_TypeId_Stimulations )
-	{
-		this->getLogManager() << LogLevel_Error << 
-			"Invalid input type of Stimulation input!" << 
-			std::to_string( static_cast<unsigned long long > ( ftStatus ) ).c_str( ) << "\n";
-		return false;
-	}
-
 	// Encoder & Decoders initializing -------------------------------------------------------------------------------------------------------------------------
 	// Signal stream decoders
 	m_oInput0Decoder.initialize(*this, 0);
@@ -177,7 +62,7 @@ boolean CBoxAlgorithmRoboArmStream::initialize ( void )
 	// Retrieving setting values -------------------------------------------------------------------------------------------------------------------------
 	// Get Strategy Settings
 	m_sStrategy = FSettingValueAutoCast( *this->getBoxAlgorithmContext( ), 1 );
-	// Get Manual Threshol value
+	// Get Manual Threshold value
 	m_f64ThresholdValue = FSettingValueAutoCast( *this->getBoxAlgorithmContext( ), 3 );
 	// Get Threshold selection
 	m_bUseThresholdSignal = FSettingValueAutoCast( *this->getBoxAlgorithmContext( ), 2 );
@@ -196,122 +81,9 @@ boolean CBoxAlgorithmRoboArmStream::initialize ( void )
 	m_bStartSignalRequested = false;
 	m_bStopSignalRequested = true;
 
-
-	//FT_STATUS ftStatus;
-	//DWORD numDevs;
-	m_bFoundRoboticArm = false;
-
-	FT_Close(m_ftHandle); // must be closed to perform the ListDevices( ) function
-	//long m_NumRecd = 0;
-
-	ftStatus = FT_ListDevices( &numDevs, NULL, FT_LIST_NUMBER_ONLY );
-	if ( ftStatus == FT_OK )
-	{
-		// FT_ListDevices OK, show number of devices connected in list box
-		this->getLogManager( ) << LogLevel_Info << "FTDI number of devices: " << std::to_string( static_cast<unsigned long long>( numDevs ) ).c_str( ) << "\n";
-
-		// list descriptions of all connected devices
-		if ( numDevs > 0 )
-		{
-			ftStatus = FT_ListDevices( &numDevs, NULL, FT_LIST_NUMBER_ONLY );
-			if ( ftStatus == FT_OK ) 
-			{
-				char *BufPtrs[64]; // pointer to array of 64 pointers
-				DWORD d;
-				for ( d = 0; d < numDevs; d++ )
-				{
-					BufPtrs[d] = new char[64];
-				}
-				BufPtrs[d] = NULL;
-
-				ftStatus = FT_ListDevices( BufPtrs, &numDevs, FT_LIST_ALL | FT_OPEN_BY_DESCRIPTION );
-				if ( FT_SUCCESS( ftStatus ) ) 
-				{
-					for ( DWORD u = 0; u < numDevs; u++ )
-					{
-						this->getLogManager( ) << LogLevel_Info << "FTDI found device: " << std::string( BufPtrs[u] ).c_str() << "\n";
-						if ( std::string( BufPtrs[u] ).find( "TTL232R-3V3" ) )
-						{
-							m_bFoundRoboticArm = true;
-						}
-					}
-				}
-				else 
-				{
-					this->getLogManager( ) << LogLevel_Error << "ListDevices failed!\n";	
-				}
-
-				//free ram to avoid memory leaks
-				for ( d = 0; d < numDevs; d++ )
-				{
-					delete BufPtrs[d];
-				}
-
-				// check if robotic arm is connected
-				if ( !m_bFoundRoboticArm )
-				{
-					this->getLogManager( ) << LogLevel_Error << "Robotic arm is not connected!\n";
-					return false;
-				}
-			}		
-		}
-		else
-		{
-			// no devices connected
-			this->getLogManager( ) << LogLevel_Error << "Robotic arm is not connected!\n";
-			return false;
-		}
-	}
-	else 
-	{
-		// FT_ListDevices failed
-		this->getLogManager( ) << LogLevel_Error << "FT_ListDevices failed!\n";
-		return false;
-	}
-
-	//ftStatus = OpenEx((PVOID)(LPCTSTR)"FT232R USB UART", FT_OPEN_BY_DESCRIPTION );
-	ftStatus = FT_OpenEx((PVOID)(LPCTSTR)"FT232R USB UART", FT_OPEN_BY_DESCRIPTION, &m_ftHandle);
-
-	char txbuf[32], rxbuf[32];
-	DWORD ret_bytes = 0;
-
-	/*this->ResetDevice( );
-	this->Purge( FT_PURGE_RX || FT_PURGE_TX );
-	this->ResetDevice( );
-	this->SetTimeouts( 3000, 3000 ); //extend timeout while board finishes reset
-	Sleep( 150 );*/
-
-	// test for presence of RoboticArm
-	sprintf( txbuf, "HW?\r" );
-	//sprintf( txbuf, "START=30\r" );
-	ftStatus = FT_Write(m_ftHandle, txbuf, std::string( txbuf ).length() , &ret_bytes);
-	ftStatus = FT_Read(m_ftHandle, rxbuf, 1, &ret_bytes);
-	if ( ret_bytes == 0 )
-	{
-		ftStatus = FT_Read(m_ftHandle, rxbuf, 6, &ret_bytes);
-	}
-	rxbuf[ret_bytes] = NULL;
-
-	if ( !std::strstr( rxbuf, "HW::ok" ) )
-	{
-		this->getLogManager( ) << LogLevel_Error << "Robotic arm is not responding!\n";
-		FT_Close(m_ftHandle);
-	}	
-	else
-	{
-		this->getLogManager( ) << LogLevel_Info << "RoboticArm response: " << std::string( rxbuf ).c_str( ) << "\n";
-		//this->getLogManager( ) << LogLevel_Info << "RoboticArm is ready!\n";
-	}
-
-
 	// Strat reading thread ----------------------------------------------------------------------------------------------------------------------------------------
 	m_bContinueCommunication = true;
-	m_bCommunicationStarted = false;
-	m_dReceivedMessage = 0;
 	m_ptSerialCom = new boost::thread( boost::bind( &CBoxAlgorithmRoboArmStream::CommunicationHandler, this ) );
-
-	ftStatus = FT_SetEventNotification( m_ftHandle, FT_EVENT_RXCHAR, m_hEvent );
-	ftStatus = FT_SetBaudRate( m_ftHandle, 57600 );
 
 	// END of FTDI initializing -----------------------------------------------------------------------------------------------------------------------------------
 
@@ -327,18 +99,11 @@ boolean CBoxAlgorithmRoboArmStream::uninitialize ( void )
 	m_oOutput0Encoder.uninitialize();
 
 	m_bContinueCommunication = false;
-	if ( m_hEvent ) // let the thread come out of waiting for infinite time
-	{
-		SetEvent( m_hEvent );
-	}
-	
+
 	if (m_ptSerialCom != NULL)
 	{
 		m_ptSerialCom->interrupt( ); // Ask thread to stop
 	}
-	//m_ptSerialCom->join( ); // Join - wait when thread actually exits
-
-	FT_Close(m_ftHandle);
 
 	return true;
 }
@@ -404,12 +169,6 @@ boolean CBoxAlgorithmRoboArmStream::process ( void )
 	// the dynamic box context describes the current state of the box inputs and outputs (i.e. the chunks)
 	IBoxIO& l_rDynamicBoxContext = this->getDynamicBoxContext( );
 
-	if ( m_dReceivedMessage )
-	{
-		this->getLogManager( ) << LogLevel_Info << "Receieved message: " << std::to_string( static_cast<unsigned long long > ( m_dReceivedMessage ) ).c_str( ) << "\n";
-		m_dReceivedMessage = 0;
-	}
-	
 	// we will first check the pending stimulations to check if the trigger has been received.
 	// iterate over all chunk on input 2 (Stimulations)
 	for ( uint32 i = 0; i < l_rDynamicBoxContext.getInputChunkCount( 2 ); i++ )

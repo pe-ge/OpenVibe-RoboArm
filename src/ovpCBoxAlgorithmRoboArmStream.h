@@ -4,11 +4,11 @@
 #include "ovp_defines.h"
 #include <openvibe/ov_all.h>
 #include <toolkit/ovtk_all.h>
+#include "CRoboArmController.h"
 
 #include <boost/thread.hpp>
 #include <windows.h>
 #include <stdint.h>
-#include "ftd2xx.h"
 
 // The unique identifiers for the box and its descriptor.
 // Identifier are randomly chosen by the skeleton-generator.
@@ -76,31 +76,13 @@ namespace OpenViBEPlugins
 			OpenViBE::uint64	m_ui64StopTrigger;
 
 			// Robo arm related declarations ----------------------------------------------------------------------------------------------------------------------------------------
-			OpenViBE::boolean	m_bFoundRoboticArm;
 
-			static const std::vector<std::string> m_scvMessages;
-			static const std::vector<std::string> m_scvCommands;
-
-			HMODULE		m_hmodule;
-			FT_HANDLE	m_ftHandle;
-			FT_STATUS	ftStatus;
-			DWORD		numDevs;
-			DWORD		EventDWord;
-			DWORD		TxBytes;
-			DWORD		RxBytes;
-			DWORD		BytesReceived;
-			char		RxBuffer[256];
-			DWORD		BytesWritten;
-			char		TxBuffer[256];
-
-			HANDLE				m_hEvent;
+			CRoboArmController	m_roboArm;
 			boost::thread		*m_ptSerialCom;
 			OpenViBE::boolean	m_bContinueCommunication;
-			OpenViBE::boolean	m_bCommunicationStarted;
-			OpenViBE::uint64	m_dReceivedMessage;
+
 
 			void CBoxAlgorithmRoboArmStream::CommunicationHandler( void );
-			
 		};
 
 		class CBoxAlgorithmRoboArmStreamDesc : virtual public OpenViBE::Plugins::IBoxAlgorithmDesc
@@ -110,7 +92,7 @@ namespace OpenViBEPlugins
 			virtual void release(void) { }
 
 			virtual OpenViBE::CString getName(void) const                { return OpenViBE::CString("RoboArmStream"); }
-			virtual OpenViBE::CString getAuthorName(void) const          { return OpenViBE::CString("Jakub Bendzala"); }
+			virtual OpenViBE::CString getAuthorName(void) const          { return OpenViBE::CString("Peter Gergel, Jakub Bendzala"); }
 			virtual OpenViBE::CString getAuthorCompanyName(void) const   { return OpenViBE::CString("SAV"); }
 			virtual OpenViBE::CString getShortDescription(void) const    { return OpenViBE::CString("Robotic Arm control stream"); }
 			virtual OpenViBE::CString getDetailedDescription(void) const { return OpenViBE::CString("This plugin makes stream of contorl conmmands to rehabilitation robotic arm."); }
@@ -125,14 +107,14 @@ namespace OpenViBEPlugins
 				OpenViBE::Kernel::IBoxProto& rBoxAlgorithmPrototype) const
 			{
 				rBoxAlgorithmPrototype.addInput("Input Signal",OV_TypeId_Signal);
-				rBoxAlgorithmPrototype.addInput("ThresHold Signal",OV_TypeId_Signal);
+				rBoxAlgorithmPrototype.addInput("Threshold Signal",OV_TypeId_Signal);
 				rBoxAlgorithmPrototype.addInput("Trigger", OV_TypeId_Stimulations);
 
 				rBoxAlgorithmPrototype.addOutput("Result",OV_TypeId_Signal);
 
 				rBoxAlgorithmPrototype.addSetting("Strategy type", OVP_TypeId_RoboArmStrategy, OVP_TypeId_RoboArmStrategy_FullMove.toString());
-				rBoxAlgorithmPrototype.addSetting("Use ThresHold Signal",  OV_TypeId_Boolean, "false");
-				rBoxAlgorithmPrototype.addSetting("ThresHold Fixed value",OV_TypeId_Float,"1.0");
+				rBoxAlgorithmPrototype.addSetting("Use Threshold Signal",  OV_TypeId_Boolean, "false");
+				rBoxAlgorithmPrototype.addSetting("Threshold Fixed value",OV_TypeId_Float,"1.0");
 				rBoxAlgorithmPrototype.addSetting("Start Trigger", OV_TypeId_Stimulation, "OVTK_StimulationId_SegmentStart");
 				rBoxAlgorithmPrototype.addSetting("Stop Trigger", OV_TypeId_Stimulation, "OVTK_StimulationId_SegmentStop");
 

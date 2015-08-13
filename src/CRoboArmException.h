@@ -11,13 +11,10 @@
 
 #include <stdexcept>
 
-namespace RoboArm
+class CRoboArmException : public std::runtime_error
 {
-	class CRoboArmException : public std::runtime_error
-	{
-	public:
-		CRoboArmException(const std::string& message);
-	};
-}
+public:
+	CRoboArmException(const std::string& message);
+};
 
 #endif // __CRoboArmException_H__

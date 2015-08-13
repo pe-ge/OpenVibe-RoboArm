@@ -3,8 +3,6 @@
 #include "ftd2xx.h"
 #include <iostream>
 
-using namespace RoboArm;
-
 bool CRoboArmController::send(const char * message)
 {
 	// Clear rx buffer on the device
@@ -183,7 +181,7 @@ bool CRoboArmController::executeMovement(Direction direction, int steps)
 	char tmp[10];
 	strcpy(tmp, RxBuffer + strlen(RxBuffer) - 9);
 
-	return strcmp(tmp, "STEP::ok\r");
+	return strcmp(tmp, "STEP::ok\r") == 0;
 }
 bool CRoboArmController::startCyclicMovement(int speed)
 {

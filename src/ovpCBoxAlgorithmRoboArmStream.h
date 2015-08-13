@@ -21,7 +21,7 @@ namespace OpenViBEPlugins
 	{
 		/**
 		 * \class CBoxAlgorithmRoboArmStream
-		 * \author Peter Gergel, Jakub Bendzala (SAV)
+		 * \author Peter Gergel
 		 * \date Wed Oct 22 13:11:55 2014
 		 * \brief The class CBoxAlgorithmRoboArmStream describes the box RoboArmStream.
 		 *
@@ -30,8 +30,6 @@ namespace OpenViBEPlugins
 		{
 
 		public:
-			CBoxAlgorithmRoboArmStream( void );
-
 			virtual void release(void) { delete this; }
 
 			virtual OpenViBE::boolean initialize ( void );
@@ -56,31 +54,18 @@ namespace OpenViBEPlugins
 			// as we provide the superclass OpenViBEToolkit::TBoxAlgorithm < OpenViBE::Plugins::IBoxAlgorithm >
 			_IsDerivedFromClass_Final_(OpenViBEToolkit::TBoxAlgorithm < OpenViBE::Plugins::IBoxAlgorithm >, OVP_ClassId_BoxAlgorithm_RoboArmStream);
 
-
 		protected:
 			// Input decoder:
-			OpenViBEToolkit::TSignalDecoder			< CBoxAlgorithmRoboArmStream > m_oInput0Decoder;
-			OpenViBEToolkit::TSignalDecoder			< CBoxAlgorithmRoboArmStream > m_oInput1Decoder;
-			OpenViBEToolkit::TStimulationDecoder	< CBoxAlgorithmRoboArmStream > m_oInput2Decoder;
-			// Signal stream encoder
-			OpenViBEToolkit::TSignalEncoder			< CBoxAlgorithmRoboArmStream > m_oOutput0Encoder;
+			OpenViBEToolkit::TStimulationDecoder	< CBoxAlgorithmRoboArmStream > m_oInput0Decoder;
 
 			// Store settings values
-			OpenViBE::CString	m_sStrategy;
-			OpenViBE::float64	m_f64ThresholdValue;
-			OpenViBE::boolean	m_bUseThresholdSignal;
+			OpenViBE::uint64	m_ui64TopAngle;
+			OpenViBE::uint64	m_ui64BottomAngle;
 
-			OpenViBE::boolean	m_bStartSignalRequested;
-			OpenViBE::boolean	m_bStopSignalRequested;
-			OpenViBE::uint64	m_ui64StartTrigger;
-			OpenViBE::uint64	m_ui64StopTrigger;
-
-			// Robo arm related declarations ----------------------------------------------------------------------------------------------------------------------------------------
-
-			CRoboArmController	m_roboArm;
-			boost::thread		*m_ptSerialCom;
-			OpenViBE::boolean	m_bContinueCommunication;
-
+			// Robo arm related declarations
+			CRoboArmController	*m_ptRoboArm;
+			boost::thread		*m_ptCommunicationHandlerThread;
+			OpenViBE::boolean	m_bSimulationRunning;
 
 			void CBoxAlgorithmRoboArmStream::CommunicationHandler( void );
 		};
@@ -92,10 +77,10 @@ namespace OpenViBEPlugins
 			virtual void release(void) { }
 
 			virtual OpenViBE::CString getName(void) const                { return OpenViBE::CString("RoboArmStream"); }
-			virtual OpenViBE::CString getAuthorName(void) const          { return OpenViBE::CString("Peter Gergel, Jakub Bendzala"); }
+			virtual OpenViBE::CString getAuthorName(void) const          { return OpenViBE::CString("Peter Gergel"); }
 			virtual OpenViBE::CString getAuthorCompanyName(void) const   { return OpenViBE::CString("SAV"); }
 			virtual OpenViBE::CString getShortDescription(void) const    { return OpenViBE::CString("Robotic Arm control stream"); }
-			virtual OpenViBE::CString getDetailedDescription(void) const { return OpenViBE::CString("This plugin makes stream of contorl conmmands to rehabilitation robotic arm."); }
+			virtual OpenViBE::CString getDetailedDescription(void) const { return OpenViBE::CString("This plugin makes stream of control conmmands to rehabilitation robotic arm."); }
 			virtual OpenViBE::CString getCategory(void) const            { return OpenViBE::CString("RoboArm"); }
 			virtual OpenViBE::CString getVersion(void) const             { return OpenViBE::CString("1.0"); }
 			virtual OpenViBE::CString getStockItemName(void) const       { return OpenViBE::CString("gtk-disconnect"); }
@@ -106,20 +91,9 @@ namespace OpenViBEPlugins
 			virtual OpenViBE::boolean getBoxPrototype(
 				OpenViBE::Kernel::IBoxProto& rBoxAlgorithmPrototype) const
 			{
-				rBoxAlgorithmPrototype.addInput("Input Signal",OV_TypeId_Signal);
-				rBoxAlgorithmPrototype.addInput("Threshold Signal",OV_TypeId_Signal);
 				rBoxAlgorithmPrototype.addInput("Trigger", OV_TypeId_Stimulations);
-
-				rBoxAlgorithmPrototype.addOutput("Result",OV_TypeId_Signal);
-
-				rBoxAlgorithmPrototype.addSetting("Strategy type", OVP_TypeId_RoboArmStrategy, OVP_TypeId_RoboArmStrategy_FullMove.toString());
-				rBoxAlgorithmPrototype.addSetting("Use Threshold Signal",  OV_TypeId_Boolean, "false");
-				rBoxAlgorithmPrototype.addSetting("Threshold Fixed value",OV_TypeId_Float,"1.0");
-				rBoxAlgorithmPrototype.addSetting("Start Trigger", OV_TypeId_Stimulation, "OVTK_StimulationId_SegmentStart");
-				rBoxAlgorithmPrototype.addSetting("Stop Trigger", OV_TypeId_Stimulation, "OVTK_StimulationId_SegmentStop");
-
-				rBoxAlgorithmPrototype.addFlag(OpenViBE::Kernel::BoxFlag_IsUnstable);
-				
+				rBoxAlgorithmPrototype.addSetting("Top Angle",				OV_TypeId_Integer,			"90");
+				rBoxAlgorithmPrototype.addSetting("Bottom Angle",			OV_TypeId_Integer,			"90");
 				return true;
 			}
 			_IsDerivedFromClass_Final_(OpenViBE::Plugins::IBoxAlgorithmDesc, OVP_ClassId_BoxAlgorithm_RoboArmStreamDesc);

@@ -1,7 +1,6 @@
 #include "CRoboArmController.h"
 #include "CRoboArmException.h"
 #include "ftd2xx.h"
-#include <iostream>
 
 bool CRoboArmController::send(const char * message)
 {
@@ -13,8 +12,9 @@ bool CRoboArmController::send(const char * message)
 	// Send message
 	TxBytes = sprintf(TxBuffer, "%s", message);
 	ftStatus |= FT_Write(ftHandle, TxBuffer, TxBytes, &BytesSent);
-	// Give robotic arm time to process message - 150ms is enough
-	Sleep(150);
+	// Wait until response is available
+	// TODO: set timeout to smaller value
+	WaitForSingleObject(hEvent, 5000);
 	// Obtain number of characters to be read;
 	ftStatus |= FT_GetQueueStatus(ftHandle, &RxBytes);
 	// Read available data
@@ -24,35 +24,6 @@ bool CRoboArmController::send(const char * message)
 
 	return ftStatus == FT_OK && RxBytes == BytesReceived;
 }
-
-/*bool CRoboArmController::send(const char * message)
-{
-	if (strcmp(message, "HW?\r") == 0) {
-		RxBytes = sprintf(RxBuffer, "%s", "HW?\r\rHW::ok\r");
-	}
-	if (strcmp(message, "COUNTER?\r") == 0) {
-		RxBytes = sprintf(RxBuffer, "%s", "COUNTER?\r\r-166\r");
-	}
-	if (strcmp(message, "ANGLES?\r") == 0) {
-		RxBytes = sprintf(RxBuffer, "%s", "ANGLES?\r\rAngle_up = 33 Angle_down = 22\r");
-	}
-	if (strcmp(message, "STEP=0,5\r") == 0) {
-		RxBytes = sprintf(RxBuffer, "%s", "STEP=0,5\r\rSTEP::ok\r");
-	}
-	if (strcmp(message, "START=20\r") == 0) {
-		RxBytes = sprintf(RxBuffer, "%s", "START=20\r\rSTART::ok\r");
-	}
-	if (strcmp(message, "STOP\r") == 0) {
-		RxBytes = sprintf(RxBuffer, "%s", "STOP\r\rSTOP::ok\r");
-	}
-	if (strcmp(message, "SET+ANGLE=90,90\r") == 0) {
-		RxBytes = sprintf(RxBuffer, "%s", "SET+ANGLE=90,90\r\rANGLE::ok\r");
-	}
-	if (strcmp(message, "CALIBRATION\r") == 0) {
-		RxBytes = sprintf(RxBuffer, "%s", "CALIBRATION\r");
-	}
-	return true;
-}*/
 
 CRoboArmController::CRoboArmController( void )
 {
@@ -75,6 +46,9 @@ CRoboArmController::CRoboArmController( void )
 	ftStatus = FT_SetTimeouts(ftHandle, FT_DEFAULT_RX_TIMEOUT + 2000, FT_DEFAULT_TX_TIMEOUT + 2000);
 	// Disable hardware / software flow control
 	ftStatus = FT_SetFlowControl(ftHandle, FT_FLOW_NONE, 0, 0);
+	// Create notification on available data on the device
+	hEvent = CreateEvent(NULL, false, false, NULL);
+	ftStatus = FT_SetEventNotification(ftHandle, FT_EVENT_RXCHAR, hEvent);
 };
 
 CRoboArmController::~CRoboArmController( void )

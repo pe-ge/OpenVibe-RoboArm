@@ -7,8 +7,6 @@
 #include "CRoboArmController.h"
 
 #include <boost/thread.hpp>
-#include <windows.h>
-#include <stdint.h>
 
 // The unique identifiers for the box and its descriptor.
 // Identifier are randomly chosen by the skeleton-generator.
@@ -21,7 +19,7 @@ namespace OpenViBEPlugins
 	{
 		/**
 		 * \class CBoxAlgorithmRoboArmStream
-		 * \author Peter Gergel
+		 * \author Peter Gergel, Jakub Bendzala
 		 * \date Wed Oct 22 13:11:55 2014
 		 * \brief The class CBoxAlgorithmRoboArmStream describes the box RoboArmStream.
 		 *
@@ -30,22 +28,13 @@ namespace OpenViBEPlugins
 		{
 
 		public:
+			CBoxAlgorithmRoboArmStream(void);
 			virtual void release(void) { delete this; }
 
 			virtual OpenViBE::boolean initialize ( void );
 			virtual OpenViBE::boolean uninitialize ( void );
 
-			//Here is the different process callbacks possible
-			// - On clock ticks :
-			//virtual OpenViBE::boolean processClock(OpenViBE::CMessageClock& rMessageClock);		
-			// - On new input received (the most common behaviour for signal processing) :
 			virtual OpenViBE::boolean processInput(OpenViBE::uint32 ui32InputIndex);
-			// - On message received :
-			virtual OpenViBE::boolean processMessage(const OpenViBE::Kernel::IMessageWithData& msg, OpenViBE::uint32 inputIndex);	
-			
-			// If you want to use processClock, you must provide the clock frequency.
-			//virtual OpenViBE::uint64 getClockFrequency(void);
-			
 			virtual OpenViBE::boolean process ( void );
 			
 			// As we do with any class in openvibe, we use the macro below 

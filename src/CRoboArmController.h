@@ -24,6 +24,7 @@ private:
 	// FTDI-related members
 	FT_HANDLE ftHandle;
 	FT_STATUS ftStatus;
+	HANDLE hEvent;
 	char TxBuffer[64], RxBuffer[64];
 	DWORD TxBytes, RxBytes;
 	DWORD BytesSent, BytesReceived;

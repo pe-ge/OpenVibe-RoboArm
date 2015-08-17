@@ -1,6 +1,6 @@
 function box_out = matlab_Process(box_in)
 
-	  global nFFT sampleFreq freq_weights electrode_weights ref_average threshold threshold_window stimulation;
+    global nFFT sampleFreq freq_weights electrode_weights ref_average threshold threshold_window stimulation;
 
     for i = 1: OV_getNbPendingInputChunk(box_in,1)
 

@@ -183,7 +183,7 @@ bool CRoboArmController::stopCyclicMovement(void)
 
 	return strcmp(RxBuffer, "STOP\r\rSTOP::ok\r") == 0;
 }
-bool CRoboArmController::setAngles(int angleUp, int angleDown)
+bool CRoboArmController::setAngles(long angleUp, long angleDown)
 {
 	if (angleUp < 0 || angleUp > 90 || angleDown < 0 || angleDown > 90)
 	{

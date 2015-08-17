@@ -1,6 +1,8 @@
 #include "ovpCBoxAlgorithmRoboArmStream.h"
 
 #include <boost/thread.hpp>
+#include <boost/lexical_cast.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 #include "CRoboArmController.h"
 #include "CRoboArmException.h"
 
@@ -42,14 +44,16 @@ OpenViBE::boolean CBoxAlgorithmRoboArmStream::initialize ( void )
 			this->getLogManager( ) << LogLevel_Error << "Robo arm is not responding.\n";
 			return false;
 		}
+		m_ptRoboArm->setAngles(m_ui64TopAngle, m_ui64BottomAngle);
 	} catch (const CRoboArmException &e)
 	{
 		this->getLogManager( ) << LogLevel_Error << e.what() << "\n";
 		return false;
 	}
 #endif
-
+	this->getLogManager( ) << LogLevel_Info << boost::lexical_cast<std::string>(boost::this_thread::get_id()).c_str() << "\n";
 	m_bSimulationRunning = true;
+	m_bRecievedTrigger = false;
 	m_ptCommunicationHandlerThread = new boost::thread( boost::bind( &CBoxAlgorithmRoboArmStream::CommunicationHandler, this ) );
 	
 	return true;
@@ -81,7 +85,15 @@ void CBoxAlgorithmRoboArmStream::CommunicationHandler( void )
 {
 	while ( m_bSimulationRunning )
 	{
-		
+#if ROBO_ARM_CONNECTED
+		if (m_bRecievedTrigger)
+		{
+			m_ptRoboArm->executeMovement(DIRECTION_UP, 100);
+			boost::this_thread::sleep(boost::posix_time::milliseconds(5000));
+			m_ptRoboArm->executeMovement(DIRECTION_DOWN, 100);
+			m_bRecievedTrigger = false;
+		}
+#endif
 	}
 }
 
@@ -106,20 +118,9 @@ OpenViBE::boolean CBoxAlgorithmRoboArmStream::process (void)
 			for (uint32 j = 0; j < l_pStimulations->getStimulationCount(); j++)
 			{
 				uint64 l_ui64StimulationCode = l_pStimulations->getStimulationIdentifier(j);
-				uint64 l_ui64StimulationDate = l_pStimulations->getStimulationDate(j);
-				CString l_sStimulationName = this->getTypeManager().getEnumerationEntryNameFromValue(OV_TypeId_Stimulation, l_ui64StimulationCode);
 				if (l_ui64StimulationCode == OVTK_StimulationId_SegmentStart)
 				{
-					this->getLogManager() << LogLevel_Info << "Starting new try sequence.\n";
-				}
-				else if (l_ui64StimulationCode == OVTK_StimulationId_SegmentStop)
-				{
-					this->getLogManager() << LogLevel_Info << "Stopoing try sequence.\n";
-				}
-				else
-				{
-					this->getLogManager() << LogLevel_Warning << "Received an unrecognized trigger, with code [" << l_ui64StimulationCode
-						<< "], name [" << l_sStimulationName << "] and date [" << time64(l_ui64StimulationDate) << "]\n";
+					m_bRecievedTrigger = true;
 				}
 			}
 		}

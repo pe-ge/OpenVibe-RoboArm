@@ -55,6 +55,7 @@ namespace OpenViBEPlugins
 			CRoboArmController	*m_ptRoboArm;
 			boost::thread		*m_ptCommunicationHandlerThread;
 			OpenViBE::boolean	m_bSimulationRunning;
+			OpenViBE::boolean	m_bRecievedTrigger;
 
 			void CBoxAlgorithmRoboArmStream::CommunicationHandler( void );
 		};

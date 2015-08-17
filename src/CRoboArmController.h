@@ -41,7 +41,7 @@ public:
 	bool executeMovement(Direction direction, int steps); // STEP
 	bool startCyclicMovement(int speed); // START
 	bool stopCyclicMovement(void); // STOP
-	bool setAngles(int angleUp, int angleDown); // SET+ANGLE
+	bool setAngles(long angleUp, long angleDown); // SET+ANGLE
 	bool setDefaultPosition(); // CALIBRATION;
 };
 

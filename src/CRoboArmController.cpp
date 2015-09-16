@@ -1,6 +1,8 @@
 #include "CRoboArmController.h"
 #include "CRoboArmException.h"
 #include "ftd2xx.h"
+#include <iostream>
+#include <algorithm>
 
 bool CRoboArmController::send(const char * message)
 {
@@ -14,7 +16,20 @@ bool CRoboArmController::send(const char * message)
 	ftStatus |= FT_Write(ftHandle, TxBuffer, TxBytes, &BytesSent);
 	// Wait until response is available
 	// TODO: set timeout to smaller value
-	WaitForSingleObject(hEvent, 5000);
+	//WaitForSingleObject(hEvent, -1);
+	Sleep(150);
+
+	std::string sent = std::string(TxBuffer);
+	sent.erase(std::remove(sent.begin(), sent.end(), '\r'), sent.end());
+	std::cout << "Sent: " << sent.c_str() << std::endl;
+
+	ftStatus |= receive();
+
+	return ftStatus == FT_OK && RxBytes == BytesReceived;
+}
+
+bool CRoboArmController::receive()
+{
 	// Obtain number of characters to be read;
 	ftStatus |= FT_GetQueueStatus(ftHandle, &RxBytes);
 	// Read available data
@@ -22,7 +37,11 @@ bool CRoboArmController::send(const char * message)
 	// Append NULL character to the end
 	RxBuffer[RxBytes] = NULL;
 
-	return ftStatus == FT_OK && RxBytes == BytesReceived;
+	std::string received = std::string(RxBuffer);
+	received.erase(std::remove(received.begin(), received.end(), '\r'), received.end());
+	std::cout << "Received: " << received.c_str() << std::endl;
+
+	return ftStatus;
 }
 
 CRoboArmController::CRoboArmController( void )
@@ -183,7 +202,7 @@ bool CRoboArmController::stopCyclicMovement(void)
 
 	return strcmp(RxBuffer, "STOP\r\rSTOP::ok\r") == 0;
 }
-bool CRoboArmController::setAngles(long angleUp, long angleDown)
+bool CRoboArmController::setAngles(int angleDown, int angleUp)
 {
 	if (angleUp < 0 || angleUp > 90 || angleDown < 0 || angleDown > 90)
 	{
@@ -191,7 +210,7 @@ bool CRoboArmController::setAngles(long angleUp, long angleDown)
 	}
 
 	char message[64];
-	sprintf(message, "SET+ANGLE=%d,%d\r", angleUp, angleDown);
+	sprintf(message, "SET+ANGLE=%d,%d\r", angleDown, angleUp);
 	if (!send(message))
 	{
 		return false;

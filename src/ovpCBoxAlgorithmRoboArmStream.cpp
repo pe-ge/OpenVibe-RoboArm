@@ -1,12 +1,9 @@
 #include "ovpCBoxAlgorithmRoboArmStream.h"
 
 #include <boost/thread.hpp>
-#include <boost/lexical_cast.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include "CRoboArmController.h"
 #include "CRoboArmException.h"
-
-#define ROBO_ARM_CONNECTED 0
 
 using namespace OpenViBE;
 using namespace OpenViBE::Kernel;
@@ -19,41 +16,47 @@ CBoxAlgorithmRoboArmStream::CBoxAlgorithmRoboArmStream(void)
 	:m_ptRoboArm(NULL), m_ptCommunicationHandlerThread(NULL)
 {
 }
+
 OpenViBE::boolean CBoxAlgorithmRoboArmStream::initialize ( void )
 {
 	m_oInput0Decoder.initialize(*this, 0);
 
 	// Retrieve box settings
-	m_ui64TopAngle		= FSettingValueAutoCast( *this->getBoxAlgorithmContext( ), 0 );
-	m_ui64BottomAngle	= FSettingValueAutoCast( *this->getBoxAlgorithmContext( ), 1 );
+	m_bRoboArmConnected = FSettingValueAutoCast( *this->getBoxAlgorithmContext( ), 0 );
+	m_ui64MovementSpeed	= FSettingValueAutoCast( *this->getBoxAlgorithmContext( ), 1 );
+	m_ui64TopAngle		= FSettingValueAutoCast( *this->getBoxAlgorithmContext( ), 2 );
+	m_ui64BottomAngle	= FSettingValueAutoCast( *this->getBoxAlgorithmContext( ), 3 );
 	if (m_ui64TopAngle < 0 || m_ui64TopAngle > 90 || m_ui64BottomAngle < 0 || m_ui64BottomAngle > 90)
 	{
 		this->getLogManager( ) << LogLevel_Error << "Incorrect angle values were set. Valid values are <0-90>.\n";
 		return false;
 	}
+	this->getLogManager( ) << LogLevel_Info << "Movement speed was set:" << m_ui64MovementSpeed << "\n";
 	this->getLogManager( ) << LogLevel_Info << "Top Angle was set:" << m_ui64TopAngle << "\n";
 	this->getLogManager( ) << LogLevel_Info << "Bottom Angle was set:" << m_ui64BottomAngle << "\n";
 
 	// Initialize robo arm
-#if ROBO_ARM_CONNECTED
-	try
+	if (m_bRoboArmConnected)
 	{
-		m_ptRoboArm = new CRoboArmController();
-		if (!m_ptRoboArm->isRoboArmResponding())
+		try
 		{
-			this->getLogManager( ) << LogLevel_Error << "Robo arm is not responding.\n";
+			m_ptRoboArm = new CRoboArmController();
+			if (!m_ptRoboArm->isRoboArmResponding())
+			{
+				this->getLogManager( ) << LogLevel_Error << "Robo arm is not responding.\n";
+				return false;
+			}
+			m_ptRoboArm->setAngles(m_ui64TopAngle, m_ui64BottomAngle);
+		} catch (const CRoboArmException &e)
+		{
+			this->getLogManager( ) << LogLevel_Error << e.what() << "\n";
 			return false;
 		}
-		m_ptRoboArm->setAngles(m_ui64TopAngle, m_ui64BottomAngle);
-	} catch (const CRoboArmException &e)
-	{
-		this->getLogManager( ) << LogLevel_Error << e.what() << "\n";
-		return false;
 	}
-#endif
-	this->getLogManager( ) << LogLevel_Info << boost::lexical_cast<std::string>(boost::this_thread::get_id()).c_str() << "\n";
+
 	m_bSimulationRunning = true;
-	m_bRecievedTrigger = false;
+	m_bRecievedStartTrigger = false;
+	m_bRecievedStopTrigger = false;
 	m_ptCommunicationHandlerThread = new boost::thread( boost::bind( &CBoxAlgorithmRoboArmStream::CommunicationHandler, this ) );
 	
 	return true;
@@ -71,13 +74,14 @@ OpenViBE::boolean CBoxAlgorithmRoboArmStream::uninitialize ( void )
 		delete m_ptCommunicationHandlerThread;
 		m_ptCommunicationHandlerThread = NULL;
 	}
-#if ROBO_ARM_CONNECTED
-	if (m_ptRoboArm != NULL)
+	if (m_bRoboArmConnected)
 	{
-		delete m_ptRoboArm;
-		m_ptRoboArm = NULL;
+		if (m_ptRoboArm != NULL)
+		{
+			delete m_ptRoboArm;
+			m_ptRoboArm = NULL;
+		}
 	}
-#endif
 	return true;
 }
 
@@ -85,15 +89,22 @@ void CBoxAlgorithmRoboArmStream::CommunicationHandler( void )
 {
 	while ( m_bSimulationRunning )
 	{
-#if ROBO_ARM_CONNECTED
-		if (m_bRecievedTrigger)
+		if (m_bRoboArmConnected)
 		{
-			m_ptRoboArm->executeMovement(DIRECTION_UP, 100);
-			boost::this_thread::sleep(boost::posix_time::milliseconds(5000));
-			m_ptRoboArm->executeMovement(DIRECTION_DOWN, 100);
-			m_bRecievedTrigger = false;
+			if (m_bRecievedStartTrigger)
+			{
+				m_ptRoboArm->startCyclicMovement(m_ui64MovementSpeed);
+				boost::this_thread::sleep(boost::posix_time::seconds(5));
+				m_ptRoboArm->stopCyclicMovement();
+				m_bRecievedStartTrigger = false;
+			}
+
+			if (m_bRecievedStopTrigger)
+			{
+				m_ptRoboArm->stopCyclicMovement();
+				m_bRecievedStopTrigger = false;
+			}
 		}
-#endif
 	}
 }
 
@@ -120,7 +131,10 @@ OpenViBE::boolean CBoxAlgorithmRoboArmStream::process (void)
 				uint64 l_ui64StimulationCode = l_pStimulations->getStimulationIdentifier(j);
 				if (l_ui64StimulationCode == OVTK_StimulationId_SegmentStart)
 				{
-					m_bRecievedTrigger = true;
+					m_bRecievedStartTrigger = true;
+				} else if (l_ui64StimulationCode == OVTK_StimulationId_SegmentStop)
+				{
+					m_bRecievedStopTrigger = true;
 				}
 			}
 		}

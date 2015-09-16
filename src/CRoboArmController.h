@@ -28,12 +28,12 @@ private:
 	char TxBuffer[64], RxBuffer[64];
 	DWORD TxBytes, RxBytes;
 	DWORD BytesSent, BytesReceived;
-
-	bool send(const char * message);
-
 public:
 	CRoboArmController(void);
 	~CRoboArmController(void);
+
+	bool send(const char * message);
+	bool receive();
 		
 	bool isRoboArmResponding(void); // HW?
 	bool getPosition(int& position); // COUNTER?
@@ -41,7 +41,7 @@ public:
 	bool executeMovement(Direction direction, int steps); // STEP
 	bool startCyclicMovement(int speed); // START
 	bool stopCyclicMovement(void); // STOP
-	bool setAngles(long angleUp, long angleDown); // SET+ANGLE
+	bool setAngles(int angleDown, int angleUp); // SET+ANGLE
 	bool setDefaultPosition(); // CALIBRATION;
 };
 

@@ -48,14 +48,17 @@ namespace OpenViBEPlugins
 			OpenViBEToolkit::TStimulationDecoder	< CBoxAlgorithmRoboArmStream > m_oInput0Decoder;
 
 			// Store settings values
+			OpenViBE::uint64	m_ui64MovementSpeed;
 			OpenViBE::uint64	m_ui64TopAngle;
 			OpenViBE::uint64	m_ui64BottomAngle;
 
 			// Robo arm related declarations
+			OpenViBE::boolean	m_bRoboArmConnected;
 			CRoboArmController	*m_ptRoboArm;
 			boost::thread		*m_ptCommunicationHandlerThread;
 			OpenViBE::boolean	m_bSimulationRunning;
-			OpenViBE::boolean	m_bRecievedTrigger;
+			OpenViBE::boolean	m_bRecievedStartTrigger;
+			OpenViBE::boolean	m_bRecievedStopTrigger;
 
 			void CBoxAlgorithmRoboArmStream::CommunicationHandler( void );
 		};
@@ -66,7 +69,7 @@ namespace OpenViBEPlugins
 
 			virtual void release(void) { }
 
-			virtual OpenViBE::CString getName(void) const                { return OpenViBE::CString("RoboArmStream"); }
+			virtual OpenViBE::CString getName(void) const                { return OpenViBE::CString("RoboArm"); }
 			virtual OpenViBE::CString getAuthorName(void) const          { return OpenViBE::CString("Peter Gergel"); }
 			virtual OpenViBE::CString getAuthorCompanyName(void) const   { return OpenViBE::CString("SAV"); }
 			virtual OpenViBE::CString getShortDescription(void) const    { return OpenViBE::CString("Robotic Arm control stream"); }
@@ -82,8 +85,10 @@ namespace OpenViBEPlugins
 				OpenViBE::Kernel::IBoxProto& rBoxAlgorithmPrototype) const
 			{
 				rBoxAlgorithmPrototype.addInput("Trigger", OV_TypeId_Stimulations);
-				rBoxAlgorithmPrototype.addSetting("Top Angle",				OV_TypeId_Integer,			"90");
-				rBoxAlgorithmPrototype.addSetting("Bottom Angle",			OV_TypeId_Integer,			"90");
+				rBoxAlgorithmPrototype.addSetting("Robo arm connected",		OV_TypeId_Boolean, "true");
+				rBoxAlgorithmPrototype.addSetting("Movement speed <1-100>",	OV_TypeId_Integer, "50");
+				rBoxAlgorithmPrototype.addSetting("Top Angle <0-90>",		OV_TypeId_Integer, "60");
+				rBoxAlgorithmPrototype.addSetting("Bottom Angle <0-90>",	OV_TypeId_Integer, "60");
 				return true;
 			}
 			_IsDerivedFromClass_Final_(OpenViBE::Plugins::IBoxAlgorithmDesc, OVP_ClassId_BoxAlgorithm_RoboArmStreamDesc);

@@ -3,6 +3,7 @@ function box_out = matlab_Initialize(box_in)
     
     %%%% global variables used in process function
     global time nFFT iiF freq_weights electrode_weights ref_average threshold threshold_window OVTK_StimulationId_SegmentStart OVTK_StimulationId_Beep;
+    time = 2;
     nFFT = 256;
     sampleFreq = 128;
     fLines = sampleFreq*(1:nFFT/2)/nFFT;

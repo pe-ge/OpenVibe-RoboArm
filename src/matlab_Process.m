@@ -1,7 +1,12 @@
 function box_out = matlab_Process(box_in)
 
-    global time nFFT iiF freq_weights electrode_weights ref_average threshold threshold_window OVTK_StimulationId_SegmentStart OVTK_StimulationId_Beep;
+    global time nFFT iiF P PP res ref_average threshold threshold_window OVTK_StimulationId_SegmentStart OVTK_StimulationId_Beep;
     
+    a_relax = 10
+    b_pause = 35
+    c_robot = 60
+    d_pause = 10 
+
     for i = 1: OV_getNbPendingInputChunk(box_in,1)
 
         [box_in, start_time, end_time, matrix_data] = OV_popInputBuffer(box_in,1);
@@ -15,13 +20,14 @@ function box_out = matlab_Process(box_in)
         end
 
         %%%% iterate over all electrodes
+        spectAll = [];
         for i = 1 : size(matrix_data, 1)
             datSeg = matrix_data(i, :);
            
             %%%% subtract mean 
             datSeg = datSeg - mean(datSeg);
            
-            %%%% compute spectra for epochs 
+            %%%% compute spectra
             w      = window(@hann, length(datSeg));
             datSeg = datSeg .* w';
             yF     = fft(datSeg, nFFT);
@@ -30,35 +36,38 @@ function box_out = matlab_Process(box_in)
 
             %%%% to be equal with BCI2000
             spect(1:nFFT/2,1) = 2 * Pyy(1:nFFT/2);
+            
+            %%%% compute log-power+
+            logZeroParam = exp(-15) ; %%%% when computing log this replaces 0 values 
+            spect(spect == 0) = logZeroParam; %%%% treat zeros                         
+            spect = 10*log10(spect);
 
             %%%% filter everything but 4 - 25 Hz
             spect = spect(iiF);
-            
-            %%%% scale spect by multiplying with frequency weight and electrode weight
-            one_dim_signal(i) = (freq_weights' * spect) * electrode_weights(i); 
+            spectAll = [spectAll; spect];
         end
         
-        %%%% final signal is sum of component signals
-        one_dim_signal = sum(one_dim_signal);
+        X2 = spectAll - res.meanX{1}';
+        XP = P'*X2;
+        one_dim_signal = fastnnls(PP,XP);
 
-        %%%% store processed signal for first 20s in order to compute reference average
-        if (time < 20)
+        %%%% relaxation
+        if (time < a_relax)
             ref_average(end + 1) = one_dim_signal;
             
-        %%%% 5 seconds pause    
-        elseif (time < 25)
-            if (time == 20)
-                beep_stimulations = [OVTK_StimulationId_Beep; box_in.clock; 0];
-                disp('Beep: 5 seconds pause...');
-            end
-            
-        %%%% in next 10s compute averages for window of overlapping 4 signal values
-        elseif (time < 35)
-            %%%% compute reference average if not computed
-            if (length(ref_average) ~= 1)
+        %%%% first pause    
+        elseif (time < a_relax + b_pause)
+            if (time == a_relax)
                 ref_average = mean(ref_average);
                 beep_stimulations = [OVTK_StimulationId_Beep; box_in.clock; 0];
-                disp('Beep: trying to trigger robo arm...');
+                disp('Beep: first pause...');
+            end
+            
+        %%%% robot movement
+        elseif (time < a_relax + b_pause + c_robot)
+            if (time == a_relax + b_pause)
+                beep_stimulations = [OVTK_StimulationId_Beep; box_in.clock; 0];
+                disp('Beep: imagination of movement...');
             end
             
             %%%% fill threshold_window with 4 signal values
@@ -68,23 +77,24 @@ function box_out = matlab_Process(box_in)
             else
                 %%%% compute average and compare with reference average
                 if (ref_average * (1 - threshold) > mean(threshold_window))
-                    %%%% if value below reference average, send trigger to robotic arm
+                    %%%% if value below reference average, send signal to robot
                     robo_arm_stimulations = [OVTK_StimulationId_SegmentStart; box_in.clock; 0];
                     disp('Sending a movement trigger...');
-                    time = 34.5;
+                    time = a_relax + b_pause + c_robot - (1 / box_in.clock_frequency);
                 end
                 
                 %%%% move threshold window
                 threshold_window = threshold_window(2:end); %%%% remove first
                 threshold_window(end + 1) = one_dim_signal; %%%% append to end
             end
-        elseif (time < 45)
-            if (time == 35)
+        %%%% 10 seconds pause
+        elseif (time < a_relax + b_pause + c_robot + d_pause)
+            if (time == a_relax + b_pause + c_robot)
                 beep_stimulations = [OVTK_StimulationId_Beep; box_in.clock; 0];
-                disp('Beep: end of session - 10 seconds pause...');
+                disp('Beep: end of session...');
             end
         else
-            time = 2; %%%%
+            time = 2; %%%% end of one session
         end
         
         %%%% sending stimulation and signal

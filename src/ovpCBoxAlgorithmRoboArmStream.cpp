@@ -93,17 +93,17 @@ void CBoxAlgorithmRoboArmStream::CommunicationHandler( void )
 		{
 			if (m_bRecievedStartTrigger)
 			{
-				m_ptRoboArm->startCyclicMovement(m_ui64MovementSpeed);
+				/*m_ptRoboArm->startCyclicMovement(m_ui64MovementSpeed);
 				boost::this_thread::sleep(boost::posix_time::seconds(5));
 				m_ptRoboArm->stopCyclicMovement();
+				m_bRecievedStartTrigger = false;*/
+				m_ptRoboArm->continuousMovement(Direction::DIRECTION_UP, m_ui64MovementSpeed, 10);
+				m_ptRoboArm->waitUntilMsgAvailable();
+				boost::this_thread::sleep(boost::posix_time::seconds(2));
+				m_ptRoboArm->continuousMovement(Direction::DIRECTION_DOWN, m_ui64MovementSpeed, 10);
 				m_bRecievedStartTrigger = false;
 			}
 
-			if (m_bRecievedStopTrigger)
-			{
-				m_ptRoboArm->stopCyclicMovement();
-				m_bRecievedStopTrigger = false;
-			}
 		}
 	}
 }

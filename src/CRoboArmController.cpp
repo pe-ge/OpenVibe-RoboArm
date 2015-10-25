@@ -15,9 +15,8 @@ bool CRoboArmController::send(const char * message)
 	TxBytes = sprintf(TxBuffer, "%s", message);
 	ftStatus |= FT_Write(ftHandle, TxBuffer, TxBytes, &BytesSent);
 	// Wait until response is available
-	// TODO: set timeout to smaller value
-	//WaitForSingleObject(hEvent, -1);
-	Sleep(150);
+	WaitForSingleObject(hEvent, INFINITE);
+	//Sleep(150);
 
 	std::string sent = std::string(TxBuffer);
 	sent.erase(std::remove(sent.begin(), sent.end(), '\r'), sent.end());
@@ -44,7 +43,12 @@ bool CRoboArmController::receive()
 	return ftStatus;
 }
 
-CRoboArmController::CRoboArmController( void )
+void CRoboArmController::waitUntilMsgAvailable()
+{
+	WaitForSingleObject(hEvent, INFINITE);
+}
+
+CRoboArmController::CRoboArmController()
 {
 	// Open the device
 	ftStatus = FT_OpenEx("AH02QXEY", FT_OPEN_BY_SERIAL_NUMBER, &ftHandle); 
@@ -66,18 +70,23 @@ CRoboArmController::CRoboArmController( void )
 	// Disable hardware / software flow control
 	ftStatus = FT_SetFlowControl(ftHandle, FT_FLOW_NONE, 0, 0);
 	// Create notification on available data on the device
-	hEvent = CreateEvent(NULL, false, false, NULL);
-	ftStatus = FT_SetEventNotification(ftHandle, FT_EVENT_RXCHAR, hEvent);
+	hEvent = CreateEvent( 
+                     NULL, 
+                     false, // auto-reset event 
+                     false, // non-signalled state 
+                     "" 
+                     );
+	ftStatus = FT_SetEventNotification(ftHandle, FT_EVENT_RXCHAR | FT_EVENT_MODEM_STATUS, hEvent);
 };
 
-CRoboArmController::~CRoboArmController( void )
+CRoboArmController::~CRoboArmController()
 {
 	// Close the device
 	ftStatus = FT_Close(ftHandle);
 	ftHandle = 0;
 };
 
-bool CRoboArmController::isRoboArmResponding(void)
+bool CRoboArmController::isRoboArmResponding()
 {
 	if (!send("HW?\r"))
 	{
@@ -151,7 +160,7 @@ bool CRoboArmController::getAngles(int& angleUp, int& angleDown)
 
 	return true;
 }
-bool CRoboArmController::executeMovement(Direction direction, int steps)
+bool CRoboArmController::step(Direction direction, int steps)
 {
 	if (direction != DIRECTION_DOWN && direction != DIRECTION_UP)
 	{
@@ -193,7 +202,7 @@ bool CRoboArmController::startCyclicMovement(int speed)
 	strcat(message + strlen(message), "\rSTART::ok\r");
 	return strcmp(message, RxBuffer) == 0;
 }
-bool CRoboArmController::stopCyclicMovement(void)
+bool CRoboArmController::stopCyclicMovement()
 {
 	if (!send("STOP\r"))
 	{
@@ -219,11 +228,37 @@ bool CRoboArmController::setAngles(int angleDown, int angleUp)
 	strcat(message + strlen(message), "\rANGLE::ok\r");
 	return strcmp(message, RxBuffer) == 0;
 }
-bool CRoboArmController::setDefaultPosition()
+bool CRoboArmController::calibrate()
 {
 	if (!send("CALIBRATION\r"))
 	{
 		return false;
 	}
 	return strcmp("CALIBRATION\r", RxBuffer) == 0;
+}
+
+bool CRoboArmController::continuousMovement(Direction direction, int speed, int steps)
+{
+	if (direction != DIRECTION_DOWN && direction != DIRECTION_UP)
+	{
+		throw CRoboArmException("Incorrect direction.");
+	}
+
+	if (speed < 1 || speed > 100)
+	{
+		throw CRoboArmException("Incorrect speed. Allowed values are <1 - 100>.");
+	}
+
+	if (steps < 1 || steps > 100)
+	{
+		throw CRoboArmException("Incorrect number of steps. Allowed values are <1 - 100>.");
+	}
+
+	char message[64];
+	sprintf(message, "DoNsteps=%d,%d,%d\r", direction, speed, steps);
+	if (!send(message))
+	{
+		return false;
+	}
+	return strcmp("Wait...\r", RxBuffer) == 0;
 }

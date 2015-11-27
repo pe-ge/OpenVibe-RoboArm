@@ -2,13 +2,13 @@ function box_out = matlab_Process(box_in)
 
     global time nFFT iiF P PP res ref_average threshold_window OVTK_StimulationId_SegmentStart OVTK_StimulationId_Label_00 OVTK_StimulationId_Label_01 OVTK_StimulationId_Label_02;
     
-    threshold = 0.3;
-    threshold_window_length = 8;
+    threshold = 0;
+    threshold_window_length = 2;
     initial_time = 2.5;
     a_relax = 10;
-    b_pause = 15;
-    c_robot = 60;
-    d_pause = 10; 
+    b_pause = 5;
+    c_robot = 40;
+    d_pause = 5; 
 
     for i = 1: OV_getNbPendingInputChunk(box_in,1)
 
@@ -20,6 +20,8 @@ function box_out = matlab_Process(box_in)
         if (time == initial_time) %%%% send relax beep?
           beep_stimulations = [OVTK_StimulationId_Label_00; box_in.clock; 0];
           disp('Beep: relax...');
+		  ref_average = [];
+		  threshold_window = [];
         end
 
         %%%% iterate over all electrodes
@@ -38,7 +40,7 @@ function box_out = matlab_Process(box_in)
             Pyy    = (abs(yF).^2) ./ length(datSeg);
 
             %%%% to be equal with BCI2000
-            spect(1:nFFT/2,1) = 2 * Pyy(1:nFFT/2);
+            spect(1:nFFT/2 + 1,1) = 2 * Pyy(1:nFFT/2 + 1);
             
             %%%% compute log-power+
             logZeroParam = exp(-15) ; %%%% when computing log this replaces 0 values 
@@ -61,7 +63,7 @@ function box_out = matlab_Process(box_in)
         %%%% first pause    
         elseif (time < initial_time + a_relax + b_pause)
             if (time == initial_time + a_relax)
-                ref_average = mean(ref_average);
+                ref_average = mean(ref_average)
                 beep_stimulations = [OVTK_StimulationId_Label_01; box_in.clock; 0];
                 disp('Beep: pause');
             end
@@ -89,11 +91,11 @@ function box_out = matlab_Process(box_in)
                 %%%% move threshold window
                 threshold_window = threshold_window(2:end); %%%% remove first
                 threshold_window(end + 1) = one_dim_signal; %%%% append to end
+				threshold_window
             end
         %%%% end of session pause
         elseif (time < initial_time + a_relax + b_pause + c_robot + d_pause)
             if (time == initial_time + a_relax + b_pause + c_robot)
-                beep_stimulations = [OVTK_StimulationId_Label_01; box_in.clock; 0];
                 disp('Beep: pause');
             end
         else

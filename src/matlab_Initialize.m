@@ -7,8 +7,12 @@ function box_out = matlab_Initialize(box_in)
     time = 2;
     nFFT = 256;
     sampleFreq = 128;
-    fLines = sampleFreq*(1:nFFT/2)/nFFT;
-    iiF = find(fLines >=4 & fLines <= 25);
+    fLines = sampleFreq * (0:nFFT/2) / nFFT;
+
+	% only for Tony
+    iiF = find(fLines >=3.5 & fLines <= 24.5);
+	% for everybody else
+	%iiF = find(fLines >=4 & fLines <= 25);
     
     threshold_window = [];
     OVTK_StimulationId_SegmentStart = hex2dec('00008003');

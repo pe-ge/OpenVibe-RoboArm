@@ -11,7 +11,7 @@ function box_out = matlab_Initialize(box_in)
     box_in.OVTK_StimulationId_Label_01 = hex2dec('00008101');
     box_in.OVTK_StimulationId_Label_02 = hex2dec('00008102');
     box_in.OVTK_StimulationId_ExperimentStart = hex2dec('00008001');
-    box_in.OVTK_StimulationId_ExperimentStop = hex2dec('00008002');
+    box_in.OVTK_StimulationId_RestStop = hex2dec('0000800a');
     %%%% ploting window
     box_in.signal_x = [];
     box_in.signal_y = [];
@@ -21,6 +21,7 @@ function box_out = matlab_Initialize(box_in)
     %%%% number of runs
     box_in.num_runs = box_in.settings(1).value;
     box_in.current_run = 1;
+    box_in.experiment_stopped = false;
     %%%% when new attempt starts, do not take first 4 values for calculating average
     box_in.ignore_signal_value = 0;
     box_in.total_ignore_values = 4;

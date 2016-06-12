@@ -1,6 +1,11 @@
 function box_out = matlab_Process(box_in)
     clf;
     hold on;
+    
+    if box_in.experiment_stopped
+        box_out = box_in;
+        return
+    end
 
     for i = 1: OV_getNbPendingInputChunk(box_in,1)
         [box_in, start_time, end_time, matrix_data] = OV_popInputBuffer(box_in,1);
@@ -122,7 +127,8 @@ function box_out = matlab_Process(box_in)
 
             %%%% should stop experiment?
             if (box_in.current_run == box_in.num_runs)
-                start_stop_experiment = [box_in.OVTK_StimulationId_ExperimentStop; box_in.clock; 0];
+                start_stop_experiment = [box_in.OVTK_StimulationId_RestStop; box_in.clock; 0];
+                box_in.experiment_stopped = true;
             end
 
             box_in.current_run = box_in.current_run + 1;
@@ -136,7 +142,7 @@ function box_out = matlab_Process(box_in)
         xlim([box_in.signal_x(1) box_in.signal_x(1) + box_in.x_length]);
         ylim([box_in.y_min box_in.y_max]); % pre vypnutie y-ovych limitov, zakomentovat
         %%%% show current run in title
-        title(box_in.current_run);
+        title(min(box_in.current_run, box_in.num_runs));
 
         %%%% vertical lines
         if isfield(box_in, 'a_relax_x')

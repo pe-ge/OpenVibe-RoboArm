@@ -58,7 +58,7 @@ function box_out = matlab_Process(box_in)
                 disp('Beep: first pause');
 
                 box_in.b_pause_x = start_time;
-                stimulation_to_save = '1st_pause';
+                stimulation_to_save = ['1st_pause,', num2str(box_in.ref_average)];
             end
 
             %%%% pause plot
@@ -88,7 +88,7 @@ function box_out = matlab_Process(box_in)
                     box_in.robot_moved = true;
                     disp('Sending a movement trigger...');
                     box_in.time = box_in.initial_time + box_in.a_relax + box_in.b_pause + box_in.c_robot - (1 / box_in.clock_frequency);
-                    stimulation_to_save = 'robot';
+                    stimulation_to_save = ['robot', mat2str(box_in.threshold_window)];
                 end
 
                 %%%% move threshold window
@@ -175,6 +175,7 @@ function box_out = matlab_Process(box_in)
 end
 
 function save_to_file(box_in, time, one_dim_signal, stimulation_to_save)
+stimulation_to_save
     time_str = num2str(time, 32);
     signal_str = num2str(one_dim_signal, 32);
     fprintf(box_in.fid, '%s\n', [time_str, ',', signal_str, ',', stimulation_to_save]);

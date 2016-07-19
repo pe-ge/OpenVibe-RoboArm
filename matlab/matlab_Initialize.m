@@ -10,7 +10,6 @@ function box_out = matlab_Initialize(box_in)
     box_in.OVTK_StimulationId_Label_00 = hex2dec('00008100');
     box_in.OVTK_StimulationId_Label_01 = hex2dec('00008101');
     box_in.OVTK_StimulationId_Label_02 = hex2dec('00008102');
-    box_in.OVTK_StimulationId_ExperimentStart = hex2dec('00008001');
     box_in.OVTK_StimulationId_RestStop = hex2dec('0000800a');
     %%%% ploting window
     box_in.signal_x = [];
@@ -43,6 +42,7 @@ function box_out = matlab_Initialize(box_in)
     box_in.y_max = box_in.settings(8).value;
     box_in.y_min = box_in.settings(9).value;
     box_in.x_length = box_in.settings(10).value;
+    box_in.filename_prefix = box_in.settings(11).value;
 
     switch box_in.subName
         case  'Tony'
@@ -101,24 +101,22 @@ function box_out = matlab_Initialize(box_in)
     box_in.PP = box_in.P'*box_in.P;
 
     %%%% create output header
-    nb_channels = 1;
-    nb_samples_per_buffer = 1;
-    channel_names = cell(1);
-    channel_names{1} = sprintf('channel %i', 1);
-    sampling_rate = 1;
-
     box_in = OV_setStimulationOutputHeader(box_in, 1);
-    box_in = OV_setSignalOutputHeader(box_in, 2, nb_channels, nb_samples_per_buffer, channel_names, sampling_rate);
+    box_in = OV_setStimulationOutputHeader(box_in, 2);
     box_in = OV_setStimulationOutputHeader(box_in, 3);
-    box_in = OV_setStimulationOutputHeader(box_in, 4);
 
-    %%%% SAVING
+    %%%% saving
     currentTimeAndDate = now;
     format_time = 'yyyy.mm.dd-HH.MM.SS';
-    file_name = ['merania/', box_in.subName, '-', datestr(currentTimeAndDate, format_time)];
-    save([file_name, '-params.mat'], 'box_in');
-
-    box_in.fid = fopen([file_name, '.txt'], 'at');
-
+    %%%% params
+    params_path = ['merania/', box_in.filename_prefix, '-params-', box_in.subName, '-', datestr(currentTimeAndDate, format_time), '.mat'];
+    save(params_path, 'box_in');
+    %%%% 1D signal
+    one_dim_path = ['merania/', box_in.filename_prefix, '-one_dim-', box_in.subName, '-', datestr(currentTimeAndDate, format_time), '.txt'];
+    box_in.f_one_dim_id = fopen(one_dim_path, 'at');
+    %%%% raw signal
+    raw_path = ['merania/', box_in.filename_prefix, '-raw_signal-', box_in.subName, '-', datestr(currentTimeAndDate, format_time), '.csv'];
+    box_in.f_raw_id = fopen(raw_path, 'at');
+    
     box_out = box_in;
 end

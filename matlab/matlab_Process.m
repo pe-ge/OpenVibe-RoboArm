@@ -8,26 +8,21 @@ function box_out = matlab_Process(box_in)
     end
 
     for i = 1: OV_getNbPendingInputChunk(box_in,1)
-        [box_in, start_time, end_time, matrix_data] = OV_popInputBuffer(box_in,1);
+        [box_in, start_time, end_time, matrix_data] = OV_popInputBuffer(box_in, 1);
 
-        robo_arm_stimulations = [];
-        beep_stimulations = [];
-        start_stop_experiment = [];
+        robo_arm_stimulation = [];
+        sound_to_play = [];
         stimulation_to_save = 'none';
 
         %%%% relax
         if (box_in.time == box_in.initial_time)
-            beep_stimulations = [box_in.OVTK_StimulationId_Label_00; box_in.clock; 0];
+            sound_to_play = [box_in.OVTK_StimulationId_Label_00; box_in.clock; 0];
             disp('Beep: relax...');
             box_in.ref_average = [];
             box_in.threshold_window = [];
             box_in.a_relax_x = start_time;
             stimulation_to_save = 'relax';
 
-            %%%% start of experiment?
-            if (box_in.current_run == 1)
-                start_stop_experiment = [box_in.OVTK_StimulationId_ExperimentStart; box_in.clock; 0];
-            end
         end
 
         one_dim_signal = process_signal(box_in, matrix_data);
@@ -54,7 +49,6 @@ function box_out = matlab_Process(box_in)
         elseif (box_in.time < box_in.initial_time + box_in.a_relax + box_in.b_pause)
             if (box_in.time == box_in.initial_time + box_in.a_relax)
                 box_in.ref_average = mean(box_in.ref_average);
-                % beep_stimulations = [box_in.OVTK_StimulationId_Label_01; box_in.clock; 0];
                 disp('Beep: first pause');
 
                 box_in.b_pause_x = start_time;
@@ -69,7 +63,7 @@ function box_out = matlab_Process(box_in)
         %%%% robot movement
         elseif (box_in.time < box_in.initial_time + box_in.a_relax + box_in.b_pause + box_in.c_robot)
             if (box_in.time == box_in.initial_time + box_in.a_relax + box_in.b_pause)
-                beep_stimulations = [box_in.OVTK_StimulationId_Label_02; box_in.clock; 0];
+                sound_to_play = [box_in.OVTK_StimulationId_Label_02; box_in.clock; 0];
                 disp('Beep: move');
 
                 box_in.c_move_x = start_time;
@@ -84,7 +78,7 @@ function box_out = matlab_Process(box_in)
                 %%%% compute average and compare with reference average
                 if (box_in.ref_average * (1 - box_in.threshold) > mean(box_in.threshold_window))
                     %%%% if value below reference average, send signal to robot
-                    robo_arm_stimulations = [box_in.OVTK_StimulationId_SegmentStart; box_in.clock; 0];
+                    robo_arm_stimulation = [box_in.OVTK_StimulationId_SegmentStart; box_in.clock; 0];
                     box_in.robot_moved = true;
                     disp('Sending a movement trigger...');
                     box_in.time = box_in.initial_time + box_in.a_relax + box_in.b_pause + box_in.c_robot - (1 / box_in.clock_frequency);
@@ -106,7 +100,7 @@ function box_out = matlab_Process(box_in)
             if (box_in.time == box_in.initial_time + box_in.a_relax + box_in.b_pause + box_in.c_robot)
                 %%%% should pause be heard
                 if ~box_in.robot_moved
-                    beep_stimulations = [box_in.OVTK_StimulationId_Label_01; box_in.clock; 0];
+                    sound_to_play = [box_in.OVTK_StimulationId_Label_01; box_in.clock; 0];
                 end
                 box_in.robot_moved = false;
 
@@ -127,7 +121,7 @@ function box_out = matlab_Process(box_in)
 
             %%%% should stop experiment?
             if (box_in.current_run == box_in.num_runs)
-                start_stop_experiment = [box_in.OVTK_StimulationId_RestStop; box_in.clock; 0];
+                sound_to_play = [box_in.OVTK_StimulationId_RestStop; box_in.clock; 0];
                 box_in.experiment_stopped = true;
             end
 
@@ -162,23 +156,25 @@ function box_out = matlab_Process(box_in)
         box_in.time = box_in.time + (1 / box_in.clock_frequency);
 
         %%%% send stimulations
-        box_in = OV_addOutputBuffer(box_in, 1, start_time, end_time, robo_arm_stimulations);
-        box_in = OV_addOutputBuffer(box_in, 2, start_time, end_time, one_dim_signal);
-        box_in = OV_addOutputBuffer(box_in, 3, start_time, end_time, beep_stimulations);
-        box_in = OV_addOutputBuffer(box_in, 4, start_time, end_time, start_stop_experiment);
+        box_in = OV_addOutputBuffer(box_in, 1, start_time, end_time, robo_arm_stimulation);
+        box_in = OV_addOutputBuffer(box_in, 2, start_time, end_time, sound_to_play);
 
-        %%%% save
-        save_to_file(box_in, end_time, one_dim_signal, stimulation_to_save);
+        %%%% save one dim signal
+        save_one_dim(box_in, end_time, one_dim_signal, stimulation_to_save);
+        %%%% save raw signal - all electrodes
+        for i = 1: OV_getNbPendingInputChunk(box_in,2)
+            [box_in, start_time, end_time, matrix_data] = OV_popInputBuffer(box_in, 2);
+            fprintf(box_in.f_raw_id, [repmat('%f, ', 1, size(matrix_data, 1) - 1) '%f\n'], matrix_data);
+        end
     end
 
     box_out = box_in;
 end
 
-function save_to_file(box_in, time, one_dim_signal, stimulation_to_save)
-stimulation_to_save
+function save_one_dim(box_in, time, one_dim_signal, stimulation_to_save)
     time_str = num2str(time, 32);
     signal_str = num2str(one_dim_signal, 32);
-    fprintf(box_in.fid, '%s\n', [time_str, ',', signal_str, ',', stimulation_to_save]);
+    fprintf(box_in.f_one_dim_id, '%s\n', [time_str, ',', signal_str, ',', stimulation_to_save]);
 end
 
 function list = slide_window(list, value, len)

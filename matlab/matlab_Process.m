@@ -1,7 +1,7 @@
 function box_out = matlab_Process(box_in)
     clf;
     hold on;
-    
+
     if box_in.experiment_stopped
         box_out = box_in;
         return
@@ -22,10 +22,16 @@ function box_out = matlab_Process(box_in)
             box_in.threshold_window = [];
             box_in.a_relax_x = start_time;
             stimulation_to_save = 'relax';
-
         end
 
+        %%%% calculate one dim signal
         one_dim_signal = process_signal(box_in, matrix_data);
+        %%%% update threshold window
+        if (length(box_in.threshold_window) ~= box_in.threshold_window_length)
+            box_in.threshold_window(end + 1) = one_dim_signal;
+        else
+            box_in.threshold_window = slide_window(box_in.threshold_window, one_dim_signal, box_in.threshold_window_length);
+        end
 
         %%%% ploting one_dim_signal
         box_in.signal_x = slide_window(box_in.signal_x, start_time, 2 * box_in.x_length);
@@ -62,19 +68,17 @@ function box_out = matlab_Process(box_in)
             plot(box_in.signal_x, box_in.ref_average * (1 - box_in.threshold) * ones(1, length(box_in.signal_x)), '--r');
         %%%% robot movement
         elseif (box_in.time < box_in.initial_time + box_in.a_relax + box_in.b_pause + box_in.c_robot)
+            %%%% play sound at the beginning
             if (box_in.time == box_in.initial_time + box_in.a_relax + box_in.b_pause)
                 sound_to_play = [box_in.OVTK_StimulationId_Label_02; box_in.clock; 0];
                 disp('Beep: move');
 
                 box_in.c_move_x = start_time;
                 stimulation_to_save = 'move';
+            end
 
-            %%%% fill threshold_window with signal values
-            elseif (length(box_in.threshold_window) ~= box_in.threshold_window_length)
-                box_in.threshold_window(end + 1) = one_dim_signal;
-
-            %%%% length equals threshold_window_length
-            else
+            %%%% do not allow to move robot for box_in.c_wait seconds
+            if (box_in.time >= box_in.initial_time + box_in.a_relax + box_in.b_pause + box_in.c_wait)
                 %%%% compute average and compare with reference average
                 if (box_in.ref_average * (1 - box_in.threshold) > mean(box_in.threshold_window))
                     %%%% if value below reference average, send signal to robot
@@ -85,8 +89,6 @@ function box_out = matlab_Process(box_in)
                     stimulation_to_save = ['robot', mat2str(box_in.threshold_window)];
                 end
 
-                %%%% move threshold window
-                box_in.threshold_window = slide_window(box_in.threshold_window, one_dim_signal, box_in.threshold_window_length);
             end
 
             %%%% plot signal
@@ -95,6 +97,7 @@ function box_out = matlab_Process(box_in)
             %%%% plot mean and threshold
             plot(box_in.signal_x, box_in.ref_average * ones(1, length(box_in.signal_x)), 'r');
             plot(box_in.signal_x, box_in.ref_average * (1 - box_in.threshold) * ones(1, length(box_in.signal_x)), '--r');
+
         %%%% end of session pause
         elseif (box_in.time < box_in.initial_time + box_in.a_relax + box_in.b_pause + box_in.c_robot + box_in.d_pause)
             if (box_in.time == box_in.initial_time + box_in.a_relax + box_in.b_pause + box_in.c_robot)
@@ -122,6 +125,7 @@ function box_out = matlab_Process(box_in)
             %%%% should stop experiment?
             if (box_in.current_run == box_in.num_runs)
                 sound_to_play = [box_in.OVTK_StimulationId_RestStop; box_in.clock; 0];
+                disp('Stopping experiment');
                 box_in.experiment_stopped = true;
             end
 
@@ -191,19 +195,34 @@ function one_dim_signal = process_signal(box_in, matrix_data)
     for t = 1 : size(matrix_data, 1)
         datSeg = matrix_data(t, :);
 
-        %%%% subtract mean 
-        datSeg = datSeg - mean(datSeg);
+        switch box_in.subName
+            case  'Tony'
+                %%%% subtract mean
+                datSeg = datSeg - mean(datSeg);
+                %%%% compute spectra
+                w      = window(@hann, length(datSeg));
+                datSeg = datSeg .* w';
+                yF     = fft(datSeg, box_in.nFFT);
+                yF     = yF(1:box_in.nFFT / 2 + 1);
+                Pyy    = (abs(yF).^2) ./ length(datSeg);
 
-        %%%% compute spectra
-        w      = window(@hann, length(datSeg));
-        datSeg = datSeg .* w';
-        yF     = fft(datSeg, box_in.nFFT);
-        yF     = yF(1:box_in.nFFT / 2 + 1);
-        Pyy    = (abs(yF).^2) ./ length(datSeg);
-
-        %%%% to be equal with BCI2000
-        spect(1:box_in.nFFT/2 + 1,1) = 2 * Pyy(1:box_in.nFFT/2 + 1);
-
+                %%%% to be equal with BCI2000
+                spect(1:box_in.nFFT/2 + 1,1) = 2 * Pyy(1:box_in.nFFT/2 + 1);
+            otherwise
+                %%%%% detrend signal for FFT
+                datSeg = detrend(datSeg,'linear');
+                %%%% zero-mean
+                datSeg = detrend(datSeg,'constant')';
+                taper = hann(length(datSeg),'periodic');
+                datSeg=datSeg.*taper;
+                %%%%% normalize by the data length
+                yF        = fft(datSeg,box_in.nFFT)/length(datSeg);
+                yF(2:end) = yF(2:end)*2; %%% don't normalize the first 0 bin
+                yF        = yF(1:box_in.nFFT/2 + 1);
+                %%Pyy       = (abs(yF).^2);
+                spect       = (abs(yF).^2);
+                %%% f_lines = param.sampleFreq*(0:param.nFFT/2)/param.nFFT;
+        end
         %%%% compute log-power+
         logZeroParam = exp(-15) ; %%%% when computing log this replaces 0 values
         spect(spect == 0) = logZeroParam; %%%% treat zeros
@@ -213,6 +232,7 @@ function one_dim_signal = process_signal(box_in, matrix_data)
         spect = spect(box_in.iiF);
         spectAll = [spectAll; spect];
     end
+
 
     X2 = spectAll;
     XP = box_in.P' * X2;

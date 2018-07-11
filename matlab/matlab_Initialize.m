@@ -24,15 +24,22 @@ function box_out = matlab_Initialize(box_in)
     %%%% when new attempt starts, do not take first 4 values for calculating average
     box_in.ignore_signal_value = 0;
     box_in.total_ignore_values = 4;
+
     %%%% colors
     box_in.relax_color = [0 0.5 0];
     box_in.pause_color = [1 0.5 0];
     box_in.move_color = [0 0 1];
     %%%% indicates whether movement was triggered (pause should not be heard)
     box_in.robot_moved = false;
+    
+    %%%% wait periods for individual windows
+    box_in.a_relax = 15; % relax window at the beginning of whole run
+    box_in.b_pause = 6; % followed by pause
+    box_in.c_robot = 20; % followed by intention of moving robot
+    box_in.c_wait = 2; % but not allowed to move for this amount of seconds
+    box_in.d_pause = 7; % followed by final pause
 
-    %subName='Jaro';
-
+    %%%% box settings from openvibe
     box_in.type=box_in.settings(2).value;    % %'Mu' 'SMR1','SMR2','Beta1','Beta2','Alpha'
     box_in.cond=box_in.settings(3).value;  % ,'VLH';  %'VLH'
     box_in.lat =box_in.settings(4).value; %  'L','R','LR';
@@ -45,7 +52,7 @@ function box_out = matlab_Initialize(box_in)
     box_in.filename_prefix = box_in.settings(11).value;
 
     switch box_in.subName
-        case  'Tony'
+        case 'Tony'
             box_in.iiF = find(fLines >=3.5 & fLines <= 24.5);
 
             %type='Mu';    % %'Mu' 'SMR1','SMR2','Beta1','Beta2','Alpha'
@@ -59,12 +66,7 @@ function box_out = matlab_Initialize(box_in)
 
             %box_in.threshold = 0.1; % higher threshold the more difficult it will be
             %box_in.threshold_window_length = 4; % 4 = 2 seconds
-            box_in.a_relax = 15;
-            box_in.b_pause = 6;
-            box_in.c_robot = 20;
-            box_in.d_pause = 7;
-
-        case  'Jaro'
+        case 'Filip'
             box_in.iiF = find(fLines >=4 & fLines <= 25);
 
             %type='Mu';    % 'SMR1','SMR2','Beta1','Beta2','Alpha'
@@ -72,29 +74,12 @@ function box_out = matlab_Initialize(box_in)
             %lat ='LR'; %  'L','R','LR';
             meanT='Mean';
 
-            load('atoms202')
+            load('atoms205')
             eval(['wS=res.',box_in.type,'.',box_in.cond,'.',box_in.lat,'.elecW.',meanT,''';']);
             eval(['wF=res.',box_in.type,'.',box_in.cond,'.',box_in.lat,'.freqW.',meanT,''';']); 
 
             %box_in.threshold = 0.09; % higher threshold the more difficult it will be
             %box_in.threshold_window_length = 4; % 4 = 2 seconds
-            box_in.a_relax = 15;
-            box_in.b_pause = 6;
-            box_in.c_robot = 20;
-            box_in.d_pause = 7;
-
-        % case  'Karina'
-            % box_in.iiF = find(fLines >=4 & fLines <= 25);
-            % load resPARAFAC-newKarin %karina
-            % %load resPARAFAC-301v2 %timotej
-            % box_in.atomN=[4]; %karina
-
-            % box_in.threshold = 0.7; % higher threshold the more difficult it will be
-            % box_in.threshold_window_length = 5; % 4 = 2 seconds
-            % box_in.a_relax = 10;
-            % box_in.b_pause = 8;
-            % box_in.c_robot = 20;
-            % box_in.d_pause = 10;
     end
 
     box_in.P  = krb(wS,wF);

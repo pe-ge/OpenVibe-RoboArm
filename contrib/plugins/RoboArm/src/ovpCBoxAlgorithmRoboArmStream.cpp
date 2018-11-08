@@ -2,8 +2,13 @@
 
 #include <boost/thread.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
+
 #include "CRoboArmController.h"
 #include "CRoboArmException.h"
+#include "CEMSController.h"
+
+#include <iostream>
+#include <string>
 
 using namespace OpenViBE;
 using namespace OpenViBE::Kernel;
@@ -26,6 +31,8 @@ OpenViBE::boolean CBoxAlgorithmRoboArmStream::initialize ( void )
 	m_ui64MovementSpeed	= FSettingValueAutoCast( *this->getBoxAlgorithmContext( ), 1 );
 	m_ui64TopAngle		= FSettingValueAutoCast( *this->getBoxAlgorithmContext( ), 2 );
 	m_ui64BottomAngle	= FSettingValueAutoCast( *this->getBoxAlgorithmContext( ), 3 );
+	m_sEMSPort			= FSettingValueAutoCast( *this->getBoxAlgorithmContext( ), 4 );
+
 	if (m_ui64TopAngle < 0 || m_ui64TopAngle > 90 || m_ui64BottomAngle < 0 || m_ui64BottomAngle > 90)
 	{
 		this->getLogManager( ) << LogLevel_Error << "Incorrect angle values were set. Valid values are <0-90>.\n";
@@ -50,8 +57,28 @@ OpenViBE::boolean CBoxAlgorithmRoboArmStream::initialize ( void )
 		} catch (const CRoboArmException &e)
 		{
 			this->getLogManager( ) << LogLevel_Error << e.what() << "\n";
+			m_bRoboArmConnected = false;
 			return false;
 		}
+	}
+
+	// Initialize EMS
+	m_bEMSActive = true;
+	if (m_bEMSActive)
+	{
+		try
+		{
+			std::string portName = "\\\\.\\" + m_sEMSPort;
+			std::cout << portName << std::endl;
+			m_ptEMS = new CEMSController(portName.c_str());
+			m_ptEMS->relayOff();
+			std::cout << m_ptEMS->relayRead() << std::endl;
+		} catch (const CRoboArmException &e)
+		{
+			this->getLogManager( ) << LogLevel_Warning << e.what() << "\n";
+			m_bEMSActive = false;
+		}
+		
 	}
 
 	m_bSimulationRunning = true;
@@ -82,6 +109,14 @@ OpenViBE::boolean CBoxAlgorithmRoboArmStream::uninitialize ( void )
 			m_ptRoboArm = NULL;
 		}
 	}
+	if (m_bEMSActive)
+	{
+		if (m_ptEMS != NULL)
+		{
+			delete m_ptEMS;
+			m_ptEMS = NULL;
+		}
+	}
 	return true;
 }
 
@@ -96,6 +131,12 @@ void CBoxAlgorithmRoboArmStream::CommunicationHandler( void )
 				int angleUp, angleDown;
 				int position;
 
+				if (m_bEMSActive)
+				{
+					m_ptEMS->relayOn();
+					std::cout << m_ptEMS->relayRead() << std::endl;
+				}
+
 				m_ptRoboArm->continuousMovement(Direction::DIRECTION_UP, m_ui64MovementSpeed, m_ui64TopAngle / 5);
 				boost::this_thread::sleep(boost::posix_time::seconds(2));
 
@@ -104,6 +145,12 @@ void CBoxAlgorithmRoboArmStream::CommunicationHandler( void )
 
 				m_ptRoboArm->continuousMovement(Direction::DIRECTION_DOWN, m_ui64MovementSpeed, m_ui64TopAngle / 5 + 1);
 				boost::this_thread::sleep(boost::posix_time::seconds(2));
+
+				if (m_bEMSActive)
+				{
+					m_ptEMS->relayOff();
+					std::cout << m_ptEMS->relayRead() << std::endl;
+				}
 
 				m_ptRoboArm->getAngles(angleUp, angleDown);
 				m_ptRoboArm->getPosition(position);

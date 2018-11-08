@@ -4,9 +4,10 @@
 #include "ovp_defines.h"
 #include <openvibe/ov_all.h>
 #include <toolkit/ovtk_all.h>
-#include "CRoboArmController.h"
-
 #include <boost/thread.hpp>
+
+#include "CRoboArmController.h"
+#include "CEMSController.h"
 
 // The unique identifiers for the box and its descriptor.
 // Identifier are randomly chosen by the skeleton-generator.
@@ -60,6 +61,11 @@ namespace OpenViBEPlugins
 			OpenViBE::boolean	m_bRecievedStartTrigger;
 			OpenViBE::boolean	m_bRecievedStopTrigger;
 
+			// EMS setting
+			OpenViBE::boolean	m_bEMSActive;
+			OpenViBE::CString	m_sEMSPort;
+			CEMSController		*m_ptEMS;
+
 			void CBoxAlgorithmRoboArmStream::CommunicationHandler( void );
 		};
 
@@ -89,6 +95,7 @@ namespace OpenViBEPlugins
 				rBoxAlgorithmPrototype.addSetting("Movement speed <1-100>",	OV_TypeId_Integer, "50");
 				rBoxAlgorithmPrototype.addSetting("Top Angle <0-90>",		OV_TypeId_Integer, "60");
 				rBoxAlgorithmPrototype.addSetting("Bottom Angle <0-90>",	OV_TypeId_Integer, "60");
+				rBoxAlgorithmPrototype.addSetting("EMS port",				OV_TypeId_String, "COM4");
 				return true;
 			}
 			_IsDerivedFromClass_Final_(OpenViBE::Plugins::IBoxAlgorithmDesc, OVP_ClassId_BoxAlgorithm_RoboArmStreamDesc);

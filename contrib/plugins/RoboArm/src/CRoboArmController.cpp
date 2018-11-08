@@ -49,7 +49,8 @@ CRoboArmController::CRoboArmController()
 	ftStatus = FT_OpenEx("AH02QXEY", FT_OPEN_BY_SERIAL_NUMBER, &ftHandle); 
 	if (ftStatus != FT_OK)
 	{
-		throw CRoboArmException("Robo arm is not connected.");
+		std::cout << "Status code: " << ftStatus << std::endl;
+		throw CRoboArmException("Robo arm is not connected. Status code: ");
 	}
 
 	// Reset the device
@@ -69,6 +70,7 @@ CRoboArmController::CRoboArmController()
 CRoboArmController::~CRoboArmController()
 {
 	// Close the device
+	std::cout << "Closing Robo Arm (FT_Close)" << std::endl;
 	ftStatus = FT_Close(ftHandle);
 	ftHandle = 0;
 };

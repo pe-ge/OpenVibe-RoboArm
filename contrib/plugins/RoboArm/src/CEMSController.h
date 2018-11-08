@@ -19,8 +19,10 @@ class CEMSController
 		char responseBuffer[32];
 		DWORD numBytesWritten;
 		DWORD numBytesRead;
+
+		int FindPortNum();
 	public:
-		CEMSController(LPCSTR PortName);
+		CEMSController();
 		~CEMSController();
 
 		char* relayRead();

@@ -1,14 +1,18 @@
 #include "CEMSController.h"
 #include "CRoboArmException.h"
+#include <sstream>
+#include <iostream>
 
-CEMSController::CEMSController(LPCSTR PortName)
+CEMSController::CEMSController()
 {
-	/*
-		Open a handle to the COM port. We need the handle to send commands and
-		receive results.
-	*/
+	// Find correct port number
+	int portNum = FindPortNum();
+	std::stringstream sstmA;
+	sstmA << "\\\\.\\COM" << portNum;
+	std::string portName = sstmA.str();
 
-	hComPort = CreateFile(PortName, GENERIC_READ | GENERIC_WRITE, 0, 0, OPEN_EXISTING, 0, 0);
+	// Open port
+	hComPort = CreateFile(portName.c_str(), GENERIC_READ | GENERIC_WRITE, 0, 0, OPEN_EXISTING, 0, 0);
 
 	if (hComPort == INVALID_HANDLE_VALUE)
 	{
@@ -20,6 +24,28 @@ CEMSController::~CEMSController()
 {
 	CloseHandle(hComPort);
 };
+
+int CEMSController::FindPortNum() //added function to find the present serial 
+{
+    TCHAR lpTargetPath[5000]; // buffer to store the path of the COMPORTS
+	
+	// iterate over ports COM0 - COM255
+	std::stringstream sstm;
+	for (unsigned int portNum = 0; portNum < 255; portNum++)
+	{
+		sstm.str("");
+		sstm << "COM" << portNum;
+		std::string portName = sstm.str();
+		DWORD test = QueryDosDevice(portName.c_str(), lpTargetPath, 5000);
+
+		if (test == 19)  // QueryDosDevice returns 19 for USB relay, I know its dirty :-(
+		{
+			return portNum;
+		}
+	}
+
+	throw CRoboArmException("EMS error: Unable to open the specified port");
+}
 
 char* CEMSController::relayRead()
 {
@@ -36,7 +62,7 @@ char* CEMSController::relayRead()
 	PurgeComm(hComPort, PURGE_RXCLEAR|PURGE_RXABORT);
 
 	/* Copy the command to the command buffer */
-	strcpy(cmdBuffer, "relay read 0");
+	strcpy_s(cmdBuffer, "relay read 0");
 
 	/* Append 0x0D to emulate ENTER key */
 	cmdBuffer[12] = 0x0D;
@@ -67,7 +93,7 @@ char* CEMSController::relayRead()
 void CEMSController::relayOn()
 {
 	/* Copy the command to the command buffer */
-	strcpy(cmdBuffer, "relay on 0");
+	strcpy_s(cmdBuffer, "relay on 0");
 
 	/* Append 0x0D to emulate ENTER key */
 	cmdBuffer[10] = 0x0D;
@@ -92,7 +118,7 @@ void CEMSController::relayOff()
 	}
 
 	/* Copy the command to the command buffer */
-	strcpy(cmdBuffer, "relay off 0");
+	strcpy_s(cmdBuffer, "relay off 0");
 
 	/* Append 0x0D to emulate ENTER key */
 	cmdBuffer[11] = 0x0D;

@@ -128,18 +128,21 @@ void CBoxAlgorithmRoboArmStream::CommunicationHandler( void )
 			int angleUp, angleDown;
 			int position;
 
-			// move robo arm UP
-			m_ptRoboArm->continuousMovement(Direction::DIRECTION_UP, m_ui64MovementSpeed, m_ui64TopAngle / 5);
-
 			// activate EMS
 			if (m_bEMSActive)
 			{
 				m_ptEMS->relayOn();
 				std::cout << m_ptEMS->relayRead() << std::endl;
-				// EMS stimulation for defined period
-				boost::this_thread::sleep(boost::posix_time::milliseconds(m_ui64EMSStimulationTime));
 			}
 
+			// move robo arm UP
+			m_ptRoboArm->continuousMovement(Direction::DIRECTION_UP, m_ui64MovementSpeed, m_ui64TopAngle / 5);
+
+			// EMS stimulation for defined period
+			OpenViBE::uint64 EMSSleepTime = 0;
+			if (m_bEMSActive) EMSSleepTime = m_ui64EMSStimulationTime;
+			boost::this_thread::sleep(boost::posix_time::milliseconds(EMSSleepTime));
+			
 			OpenViBE::uint64 robotSleepTime = m_ui64MovementSleep;
 			// stop EMS
 			if (m_bEMSActive)
@@ -159,7 +162,7 @@ void CBoxAlgorithmRoboArmStream::CommunicationHandler( void )
 			// move robo arm DOWN
 			m_ptRoboArm->continuousMovement(Direction::DIRECTION_DOWN, m_ui64MovementSpeed, m_ui64TopAngle / 5 + 1);
 			// wait until m_ui64MovementSleep is finished
-			boost::this_thread::sleep(boost::posix_time::seconds(m_ui64MovementSleep));
+			boost::this_thread::sleep(boost::posix_time::milliseconds(m_ui64MovementSleep));
 
 			m_ptRoboArm->getAngles(angleUp, angleDown);
 			m_ptRoboArm->getPosition(position);

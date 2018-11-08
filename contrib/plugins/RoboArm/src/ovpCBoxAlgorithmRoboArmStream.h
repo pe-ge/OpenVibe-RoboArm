@@ -50,6 +50,7 @@ namespace OpenViBEPlugins
 
 			// Store settings values
 			OpenViBE::uint64	m_ui64MovementSpeed;
+			OpenViBE::uint64	m_ui64MovementSleep;
 			OpenViBE::uint64	m_ui64TopAngle;
 			OpenViBE::uint64	m_ui64BottomAngle;
 
@@ -93,10 +94,11 @@ namespace OpenViBEPlugins
 				rBoxAlgorithmPrototype.addInput("Trigger", OV_TypeId_Stimulations);
 				rBoxAlgorithmPrototype.addSetting("Robo arm connected",			OV_TypeId_Boolean, "true");
 				rBoxAlgorithmPrototype.addSetting("Movement speed <1-100>",		OV_TypeId_Integer, "50");
+				rBoxAlgorithmPrototype.addSetting("Movement pause (ms)",		OV_TypeId_Integer, "2000");
 				rBoxAlgorithmPrototype.addSetting("Top Angle <0-90>",			OV_TypeId_Integer, "60");
 				rBoxAlgorithmPrototype.addSetting("Bottom Angle <0-90>",		OV_TypeId_Integer, "60");
 				rBoxAlgorithmPrototype.addSetting("EMS connected",				OV_TypeId_Boolean, "true");
-				rBoxAlgorithmPrototype.addSetting("EMS stimulation time (ms)",	OV_TypeId_Integer, "2000");
+				rBoxAlgorithmPrototype.addSetting("EMS stimulation time (ms)",	OV_TypeId_Integer, "1000");
 				return true;
 			}
 			_IsDerivedFromClass_Final_(OpenViBE::Plugins::IBoxAlgorithmDesc, OVP_ClassId_BoxAlgorithm_RoboArmStreamDesc);

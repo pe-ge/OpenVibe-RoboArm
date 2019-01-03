@@ -9,7 +9,7 @@ function box_out = matlab_Process(box_in)
 
     for i = 1: OV_getNbPendingInputChunk(box_in,1)
         [box_in, start_time, end_time, matrix_data] = OV_popInputBuffer(box_in, 1);
-
+        
         robo_arm_stimulation = [];
         sound_to_play = [];
         stimulation_to_save = 'none';
@@ -165,11 +165,13 @@ function box_out = matlab_Process(box_in)
 
         %%%% save one dim signal
         save_one_dim(box_in, end_time, one_dim_signal, stimulation_to_save);
-        %%%% save raw signal - all electrodes
-        for i = 1: OV_getNbPendingInputChunk(box_in,2)
-            [box_in, start_time, end_time, matrix_data] = OV_popInputBuffer(box_in, 2);
-            fprintf(box_in.f_raw_id, [repmat('%f, ', 1, size(matrix_data, 1) - 1) '%f\n'], matrix_data);
-        end
+        
+    end
+    
+    %%%% save raw signal - all electrodes
+    for j = 1: OV_getNbPendingInputChunk(box_in,2)
+        [box_in, start_time, end_time, matrix_data] = OV_popInputBuffer(box_in, 2);
+        fprintf(box_in.f_raw_id, [repmat('%f, ', 1, size(matrix_data, 1) - 1) '%f\n'], matrix_data);
     end
 
     box_out = box_in;
@@ -190,14 +192,25 @@ function list = slide_window(list, value, len)
 end
 
 function one_dim_signal = process_signal(box_in, matrix_data)
+
+    switch box_in.lat
+        case 'L'
+            matrix_data=matrix_data(1:5,:);
+        case 'LR'
+            matrix_data=matrix_data([1:5, 7:11],:);
+        case 'R'
+            matrix_data=matrix_data(7:11,:);
+    end 
+    
+    
     %%%% iterate over all electrodes
     spectAll = [];
     for t = 1 : size(matrix_data, 1)
         datSeg = matrix_data(t, :);
 
         switch box_in.subName
-            case  'Tony'
-                %%%% subtract mean
+            case  'Tony'     
+                %%%% subtract mean 
                 datSeg = datSeg - mean(datSeg);
                 %%%% compute spectra
                 w      = window(@hann, length(datSeg));
@@ -209,12 +222,12 @@ function one_dim_signal = process_signal(box_in, matrix_data)
                 %%%% to be equal with BCI2000
                 spect(1:box_in.nFFT/2 + 1,1) = 2 * Pyy(1:box_in.nFFT/2 + 1);
             otherwise
-                %%%%% detrend signal for FFT
+                %%%%% detrend signal for FFT 
                 datSeg = detrend(datSeg,'linear');
                 %%%% zero-mean
-                datSeg = detrend(datSeg,'constant')';
+                datSeg = detrend(datSeg,'constant');
                 taper = hann(length(datSeg),'periodic');
-                datSeg=datSeg.*taper;
+                datSeg=datSeg'.*taper;
                 %%%%% normalize by the data length
                 yF        = fft(datSeg,box_in.nFFT)/length(datSeg);
                 yF(2:end) = yF(2:end)*2; %%% don't normalize the first 0 bin
@@ -222,6 +235,9 @@ function one_dim_signal = process_signal(box_in, matrix_data)
                 %%Pyy       = (abs(yF).^2);
                 spect       = (abs(yF).^2);
                 %%% f_lines = param.sampleFreq*(0:param.nFFT/2)/param.nFFT;
+                
+                %%%% to be at the same scale as Tony:
+                spect = spect*length(datSeg)/2;
         end
         %%%% compute log-power+
         logZeroParam = exp(-15) ; %%%% when computing log this replaces 0 values

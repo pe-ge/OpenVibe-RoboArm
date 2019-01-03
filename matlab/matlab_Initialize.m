@@ -84,6 +84,8 @@ function box_out = matlab_Initialize(box_in)
 
     box_in.P  = krb(wS,wF);
     box_in.PP = box_in.P'*box_in.P;
+    
+    %box_in.TMP=[];
 
     %%%% create output header
     box_in = OV_setStimulationOutputHeader(box_in, 1);
